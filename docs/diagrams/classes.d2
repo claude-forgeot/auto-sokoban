@@ -1,0 +1,220 @@
+title: {
+  label: "Auto-Sokoban — Diagramme de classes"
+  near: top-center
+  shape: text
+  style.font-size: 22
+  style.bold: true
+}
+
+direction: down
+
+classes: {
+  data: {
+    style: {
+      fill: "#1976d2"
+      font-color: "#FFFFFF"
+    }
+  }
+  result: {
+    style: {
+      fill: "#8e24aa"
+      font-color: "#FFFFFF"
+    }
+  }
+  solver: {
+    style: {
+      fill: "#f57c00"
+      font-color: "#FFFFFF"
+    }
+  }
+  ui: {
+    style: {
+      fill: "#388e3c"
+      font-color: "#FFFFFF"
+    }
+  }
+}
+
+MoveDir: {
+  shape: class
+  label: "Direction"
+  "UP": "(-1, 0)"
+  "DOWN": "(1, 0)"
+  "LEFT": "(0, -1)"
+  "RIGHT": "(0, 1)"
+  "delta": "() -> tuple[int, int]"
+  class: data
+}
+
+BoardState: {
+  shape: class
+  "walls": "frozenset[Position]"
+  "targets": "frozenset[Position]"
+  "boxes": "frozenset[Position]"
+  "player": "Position"
+  "width": "int"
+  "height": "int"
+  "is_won()": "bool"
+  "at(pos)": "str"
+  "__hash__()": "int"
+  class: data
+}
+
+Board: {
+  shape: class
+  "_initial": "BoardState"
+  "_state": "BoardState"
+  "_history": "list[BoardState]"
+  "state": "BoardState (property)"
+  "move(d)": "bool"
+  "undo()": "bool"
+  "reset()": "None"
+  "is_won()": "bool"
+  "from_xsb(xsb)": "Board (classmethod)"
+  "was_last_push()": "bool"
+  class: data
+}
+
+detect_deadlocks: {
+  shape: class
+  label: "detect_corner_deadlocks()"
+  "state": "BoardState"
+  "return": "frozenset[Position]"
+  class: data
+}
+
+SolverStep: {
+  shape: class
+  "direction": "Direction"
+  "state_snapshot": "BoardState"
+  "nodes_explored_so_far": "int"
+  class: result
+}
+
+SolverResult: {
+  shape: class
+  "found": "bool"
+  "steps": "tuple[SolverStep, ...]"
+  "total_nodes_explored": "int"
+  "time_ms": "float"
+  "solution_length": "int"
+  "algo_name": "str"
+  "level_name": "str"
+  "visit_counts": "dict[Position, int]"
+  class: result
+}
+
+SolverProgress: {
+  shape: class
+  "algo_name": "str"
+  "nodes_explored": "int"
+  "elapsed_ms": "float"
+  "finished": "bool"
+  "result": "SolverResult | None"
+  "frontier_size": "int"
+  "current_depth": "int"
+  "visit_counts": "dict[Position, int]"
+  class: result
+}
+
+Solver: {
+  shape: class
+  "name": "str"
+  "solve(initial, level_name)": "SolverResult"
+  "solve_async(initial, ..., queue)": "None"
+  "_search_async(...)": "abstract"
+  "_report_progress(...)": "None"
+  class: solver
+  style.bold: true
+}
+
+AStar: {
+  shape: class
+  "name": '"A*"'
+  "_manhattan_heuristic()": "int"
+  class: solver
+}
+
+BFS: {
+  shape: class
+  "name": '"BFS"'
+  class: solver
+}
+
+DFS: {
+  shape: class
+  "name": '"DFS"'
+  "max_depth": "int"
+  class: solver
+}
+
+MetricsPanel: {
+  shape: class
+  "_result": "SolverResult | None"
+  "_progress": "SolverProgress | None"
+  "update(result)": "None"
+  "update_progress(progress)": "None"
+  "render()": "Surface"
+  "render_progress()": "Surface (live)"
+  "render_comparison(results)": "Surface (barres)"
+  "render_timeline(timelines)": "Surface (graphe)"
+  class: ui
+}
+
+Renderer: {
+  shape: class
+  "tile_size": "int"
+  "_variant": "int"
+  "render(state, facing_left)": "Surface"
+  "render_heatmap_overlay(state, visits)": "Surface"
+  "render_deadlock_overlay(state)": "Surface"
+  class: ui
+}
+
+Button: {
+  shape: class
+  "rect": "Rect"
+  "label": "str"
+  "action": "Action"
+  "hovered": "bool"
+  "pressed": "bool"
+  "draw(surface)": "None"
+  class: ui
+}
+
+LaneState: {
+  shape: class
+  label: "LaneState (RaceScene)"
+  "solver": "Solver"
+  "thread": "Thread | None"
+  "progress_queue": "Queue"
+  "result": "SolverResult | None"
+  "finish_order": "int"
+  class: ui
+}
+
+# Relations
+Board -> BoardState: "has 1 + history"
+Board -> MoveDir: "uses"
+detect_deadlocks -> BoardState: "analyse"
+SolverStep -> MoveDir: "has 1"
+SolverStep -> BoardState: "snapshot"
+SolverResult -> SolverStep: "has *"
+SolverProgress -> SolverResult: "result (final)"
+Solver -> BoardState: "consumes"
+Solver -> SolverResult: "produces"
+Solver -> SolverProgress: "emits via queue"
+AStar -> Solver: "extends" {
+  style.stroke-dash: 5
+}
+BFS -> Solver: "extends" {
+  style.stroke-dash: 5
+}
+DFS -> Solver: "extends" {
+  style.stroke-dash: 5
+}
+MetricsPanel -> SolverResult: "renders"
+MetricsPanel -> SolverProgress: "live display"
+Renderer -> BoardState: "draws"
+LaneState -> Solver: "has 1"
+LaneState -> SolverResult: "stores"

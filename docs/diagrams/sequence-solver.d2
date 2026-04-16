@@ -1,0 +1,60 @@
+title: {
+  label: "Auto-Sokoban — Séquence : résolution async + replay"
+  near: top-center
+  shape: text
+  style.font-size: 22
+  style.bold: true
+}
+
+shape: sequence_diagram
+
+user: "Utilisateur"
+ui: "SolverScene"
+thread: "Thread solveur"
+queue: "Queue\n[SolverProgress]"
+solver: "Solver\n(A* / BFS / DFS)"
+metrics: "MetricsPanel"
+renderer: "Renderer"
+
+user -> ui: "clic 'Résoudre'"
+ui -> thread: "Thread(solver.solve_async)" {
+  style.stroke-width: 2
+  style.stroke: "#1976d2"
+}
+
+async_loop: "Thread asynchrone (non-bloquant)" {
+  thread -> solver: "_search_async(initial, queue, cancel)"
+  exploration: "Boucle d'exploration" {
+    solver -> solver: "pop / expand / push\n+ visit_counts[player] += 1" {
+      style.italic: true
+    }
+    solver -> queue: "SolverProgress(nodes, frontier,\ndepth, visit_counts) tous les 50 noeuds"
+  }
+  solver -> queue: "SolverProgress(finished=True,\nresult=SolverResult)"
+}
+
+main_loop: "Game loop (chaque frame)" {
+  ui -> queue: "poll get_nowait()"
+  queue -> ui: "SolverProgress"
+  ui -> metrics: "update_progress(progress)\n[compteurs live + flash jaune]"
+  ui -> renderer: "render(state) + heatmap overlay"
+  renderer -> user: "affichage temps-réel"
+}
+
+ui -> ui: "progress.finished -> demarrer replay"
+
+replay: "Replay pas-à-pas (vitesse variable)" {
+  ui -> renderer: "render(step.state_snapshot, facing_left)"
+  ui -> renderer: "render_deadlock_overlay(state)"
+  renderer -> user: "animation + deadlocks rouges"
+  user -> ui: "[+/-] vitesse, [ESPACE] pause,\n[</->] pas-a-pas, [H] heatmap"
+}
+
+ui -> metrics: "render_comparison(results)\n+ render_timeline(timelines)"
+metrics -> user: "tableau + barres + graphe noeuds/temps"
+
+note: "Threading : Queue thread-safe.\nSolverProgress frozen dataclass.\nAucune donnee mutable partagee." {
+  shape: text
+  style.italic: true
+  style.font-size: 11
+}

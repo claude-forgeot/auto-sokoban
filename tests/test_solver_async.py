@@ -1,0 +1,223 @@
+"""Tests pour l'exécution asynchrone des solveurs."""
+
+import queue
+import threading
+
+from game.board import Board, BoardState, Direction
+from solver.a_star import AStar
+from solver.base import Solver, SolverProgress, SolverResult, SolverStep
+from solver.bfs import BFS
+from solver.dfs import DFS
+
+SMALL_LEVEL = """\
+#####
+#@$.#
+#####
+"""
+
+
+class DummyAsyncSolver(Solver):
+    """Solveur factice qui explore N noeuds pour tester l'infra async."""
+
+    name = "Dummy"
+
+    def solve(self, initial: BoardState, level_name: str = "") -> SolverResult:
+        return SolverResult(
+            found=False, steps=(), total_nodes_explored=0,
+            time_ms=0.0, solution_length=0,
+            algo_name=self.name, level_name=level_name,
+        )
+
+    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time):
+        nodes = 0
+        for _ in range(120):
+            if cancel_event.is_set():
+                return False, (), nodes
+            nodes += 1
+            if nodes % 50 == 0:
+                self._report_progress(progress_queue, nodes, start_time)
+        return False, (), nodes
+
+
+class TestSolveAsync:
+    def _make_state(self):
+        return BoardState(
+            walls=frozenset({(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2)}),
+            targets=frozenset(),
+            boxes=frozenset(),
+            player=(1, 1),
+            width=3, height=3,
+        )
+
+    def test_progress_sent(self):
+        solver = DummyAsyncSolver()
+        state = self._make_state()
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        solver.solve_async(state, "test", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        # 120 noeuds / 50 = 2 progress + 1 final = 3 messages
+        assert len(messages) == 3
+        assert not messages[0].finished
+        assert messages[0].nodes_explored == 50
+        assert not messages[1].finished
+        assert messages[1].nodes_explored == 100
+        assert messages[2].finished
+        assert messages[2].result is not None
+
+    def test_cancel_stops_solver(self):
+        solver = DummyAsyncSolver()
+        state = self._make_state()
+        q = queue.Queue()
+        cancel = threading.Event()
+        cancel.set()  # annulation immédiate
+
+        solver.solve_async(state, "test", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        # Seul le message final (finished=True)
+        assert len(messages) == 1
+        assert messages[0].finished
+        assert not messages[0].result.found
+        assert messages[0].nodes_explored == 0
+
+
+class TestBFSAsync:
+    def test_progress_and_result(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        solver = BFS()
+        solver.solve_async(board.state, "small", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        # Au moins le message final
+        assert len(messages) >= 1
+        final = messages[-1]
+        assert final.finished
+        assert final.result.found
+        assert final.result.algo_name == "BFS"
+
+        # Les messages intermédiaires sont dans l'ordre croissant
+        for i in range(len(messages) - 1):
+            assert not messages[i].finished
+            if i > 0:
+                assert messages[i].nodes_explored > messages[i - 1].nodes_explored
+
+    def test_solve_unchanged(self):
+        """solve() classique retourne le même résultat qu'avant."""
+        board = Board.from_xsb(SMALL_LEVEL)
+        solver = BFS()
+        result = solver.solve(board.state, "small")
+        assert result.found
+        assert result.algo_name == "BFS"
+        assert result.solution_length > 0
+
+
+class TestDFSAsync:
+    def test_progress_and_result(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        solver = DFS(max_depth=200)
+        solver.solve_async(board.state, "small", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        assert len(messages) >= 1
+        final = messages[-1]
+        assert final.finished
+        assert final.result.found
+        assert final.result.algo_name == "DFS"
+
+    def test_solve_unchanged(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        solver = DFS(max_depth=200)
+        result = solver.solve(board.state, "small")
+        assert result.found
+        assert result.algo_name == "DFS"
+
+
+class TestAStarAsync:
+    def test_progress_and_result(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        solver = AStar()
+        solver.solve_async(board.state, "small", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        assert len(messages) >= 1
+        final = messages[-1]
+        assert final.finished
+        assert final.result.found
+        assert final.result.algo_name == "A*"
+
+    def test_solve_unchanged(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        solver = AStar()
+        result = solver.solve(board.state, "small")
+        assert result.found
+        assert result.algo_name == "A*"
+
+
+class TestSolverProgress:
+    def test_in_progress(self):
+        p = SolverProgress(
+            algo_name="BFS",
+            nodes_explored=50,
+            elapsed_ms=12.3,
+            finished=False,
+        )
+        assert p.algo_name == "BFS"
+        assert p.nodes_explored == 50
+        assert not p.finished
+        assert p.result is None
+
+    def test_finished_with_result(self):
+        result = SolverResult(
+            found=True,
+            steps=(),
+            total_nodes_explored=100,
+            time_ms=25.0,
+            solution_length=5,
+            algo_name="BFS",
+            level_name="test",
+        )
+        p = SolverProgress(
+            algo_name="BFS",
+            nodes_explored=100,
+            elapsed_ms=25.0,
+            finished=True,
+            result=result,
+        )
+        assert p.finished
+        assert p.result is not None
+        assert p.result.found
+
+    def test_frozen(self):
+        p = SolverProgress("BFS", 10, 1.0, False)
+        try:
+            p.nodes_explored = 20
+            assert False, "devrait lever FrozenInstanceError"
+        except AttributeError:
+            pass
