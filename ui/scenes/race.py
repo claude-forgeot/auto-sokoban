@@ -13,6 +13,7 @@ from solver.a_star import AStar
 from solver.base import Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
+from ui.audio import AudioManager
 from ui.fonts import load_font
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
@@ -48,17 +49,21 @@ class LaneState:
 
 
 class RaceScene(Scene):
-    """Course cote-a-cote de 3 algorithmes sur le meme niveau."""
+    """Course côte-à-côte de 3 algorithmes sur le même niveau."""
 
     def __init__(
         self,
         manager: SceneManager,
         level_meta: LevelMeta,
+        audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
     ) -> None:
         super().__init__(manager)
         self.level_meta = level_meta
+        # MODIFICATION : Ajout du paramétrage audio dans le constructeur
+        # Cela permet à la scene race d'accéder aux sons
+        self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
 
@@ -100,9 +105,13 @@ class RaceScene(Scene):
 
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
-                   Action.BACK_MENU, font=self._font,
-                   color=(100, 40, 40), hover_color=(140, 60, 60)),
+                    Action.BACK_MENU, font=self._font,
+                    color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
+
+        # MODIFICATION : Jouer le son de début lorsqu'on entre en mode course
+        if self.audio is not None:
+            self.audio.play_race_start()
 
         self._start_race()
 
@@ -128,6 +137,9 @@ class RaceScene(Scene):
                 self.manager.quit()
             elif action == Action.BACK_MENU:
                 self._cancel_all()
+                # MODIFICATION : Arrêter les sons de la course et relancer la musique du menu
+                if self.audio is not None:
+                    self.audio.return_to_menu()
                 from ui.scenes.menu import MenuScene
                 self.manager.switch(MenuScene(
                     self.manager, screen_w=self.screen_w, screen_h=self.screen_h,

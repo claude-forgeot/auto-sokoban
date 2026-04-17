@@ -16,9 +16,10 @@ _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "audio"
 # - "push" : son de poussee de caisse (ancien comportement)
 # - "bottle_clank" : son de bouteilles qui s'entrechoquent
 # - "game_start" : son de début de niveau
+# - "race" : son de début de course algorithmique
 # - "win" : son de victoire
 # - "button" : son des boutons UI
-_SFX_NAMES: tuple[str, ...] = ("move", "push", "bottle_clank", "game_start", "win", "button")
+_SFX_NAMES: tuple[str, ...] = ("move", "push", "bottle_clank", "game_start", "race", "win", "button")
 _MUSIC_NAME = "music_loop"
 _SUPPORTED_EXT: tuple[str, ...] = (".wav", ".ogg")
 
@@ -105,6 +106,20 @@ class AudioManager:
         un bruit realiste de bouteilles en verre qui se heurtent.
         """
         self.play_sfx("bottle_clank")
+        
+        # MODIFICATION : Nouvelle methode pour jouer le son de debut de course
+    def play_race_start(self) -> None:
+        """Joue le son de début de course algorithmique.
+        
+        Ce son est lancé lorsque le joueur entre en mode course aux algorithmes.
+        Cette méthode arrête aussi la musique de fond et bascule le contexte à "race".
+        """
+        # Arrêter la musique de fond avant de jouer le son de début de course
+        self.stop_music()
+        # Définir le contexte comme étant en course
+        self._current_context = "race"
+        # Jouer le son de début de course
+        self.play_sfx("race")
 
     # ------------------------------------------------------------------
     # Gestion du contexte audio
@@ -117,9 +132,9 @@ class AudioManager:
         Arrête tous les sons du jeu et relance la musique de fond du menu.
         Cette methode doit etre appelee quand le joueur quitte une scene de jeu.
         """
-        # Arreter tous les effets sonores qui pourraient jouer
+        # Arrêter tous les effets sonores qui pourraient jouer
         pygame.mixer.stop()
-        # Redefinir le contexte
+        # Redéfinir le contexte
         self._current_context = "menu"
         # Relancer la musique de fond
         self.play_music()

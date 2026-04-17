@@ -237,7 +237,7 @@ class MenuScene(Scene):
         from ui.scenes.race import RaceScene
 
         scene = RaceScene(
-            self.manager, level,
+            self.manager, level, self.audio,
             screen_w=self.screen_w, screen_h=self.screen_h,
         )
         self.manager.switch(scene)
