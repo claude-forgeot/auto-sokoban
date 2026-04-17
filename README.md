@@ -31,7 +31,7 @@ python3 -m pytest tests/ -v
 game/          Plateau, regles, niveaux, scores SQLite
 solver/        BFS, DFS, A* (heritent de Solver ABC dans base.py)
 ui/            Scenes Pygame, rendu, boutons, audio
-levels/        7 niveaux XSB
+levels/        52 niveaux XSB (18 faciles, 17 moyens, 17 difficiles)
 assets/        Sprites + sons
 tests/         pytest sur les solveurs et le plateau
 ```
@@ -55,7 +55,7 @@ explore moins de noeuds pour le meme resultat.
 
 ### Benchmarks
 
-Mesures sur nos 7 niveaux (les plus parlants) :
+Mesures sur 3 niveaux representatifs (1 par difficulte) :
 
 | Niveau | Caisses | Algo | Coups | Noeuds | Temps |
 |--------|---------|------|-------|--------|-------|
@@ -76,7 +76,7 @@ A* met 32ms pour 19 coups. Sur hard_1 BFS explore 274k noeuds, A* seulement
 ## Fonctionnalites
 
 - Jeu complet (deplacement, poussee, undo, reset)
-- 7 niveaux : 3 faciles, 2 moyens, 2 difficiles
+- 52 niveaux : 18 faciles, 17 moyens, 17 difficiles
 - Resolution auto avec replay pas-a-pas
 - Comparaison des 3 algos avec metriques
 - Classement sauvegarde en SQLite
