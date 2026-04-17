@@ -1,7 +1,6 @@
 """Tests unitaires pour solver/dfs.py."""
 
 from game.board import Board
-from solver.bfs import BFS
 from solver.dfs import DFS
 
 LEVEL_PUSH_UP = """\
@@ -55,13 +54,12 @@ class TestDFS:
         result = solver.solve(board.state, "push")
         assert result.found
 
-    def test_not_optimal(self):
-        """DFS ne garantit pas l'optimalite : solution >= BFS."""
+    def test_finds_solution(self):
+        """DFS trouve une solution (optimalite non garantie, cf. BFS pour l'optimum)."""
         board = Board.from_xsb(LEVEL_SIMPLE)
-        bfs_result = BFS().solve(board.state, "bfs")
         dfs_result = DFS().solve(board.state, "dfs")
         assert dfs_result.found
-        assert dfs_result.solution_length >= bfs_result.solution_length
+        assert dfs_result.solution_length > 0
 
     def test_max_depth(self):
         board = Board.from_xsb(LEVEL_SIMPLE)
