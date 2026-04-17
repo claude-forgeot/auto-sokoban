@@ -72,6 +72,10 @@ class AStar(Solver):
                     continue
 
                 new_g = g + 1
+                # `>=` (pas `>`) : Manhattan est une heuristique consistante
+                # sur Sokoban, donc le premier chemin trouve vers un etat est
+                # optimal. Skipper si new_g egal evite les re-explorations
+                # redondantes (test_fewer_nodes_than_bfs assure cette propriete).
                 if new_g >= visited.get(new_state, float("inf")):
                     continue
 
