@@ -418,14 +418,15 @@ class SolverScene(Scene):
             status_surf = self._font.render(status, True, STATUS_COLOR)
             screen.blit(status_surf, (20, self.screen_h - 40))
 
-        # Indicateur vitesse / pause
-        speed_label = REPLAY_SPEEDS[self._speed_idx][0]
-        if self._paused:
-            speed_text = f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas"
-        else:
-            speed_text = f"{speed_label} | [-/+] vitesse | [ESPACE] pause"
-        speed_surf = self._font.render(speed_text, True, STATUS_COLOR)
-        screen.blit(speed_surf, (20, self.screen_h - 20))
+        # Indicateur vitesse / pause : pertinent uniquement pendant le replay.
+        if self._replaying:
+            speed_label = REPLAY_SPEEDS[self._speed_idx][0]
+            if self._paused:
+                speed_text = f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas"
+            else:
+                speed_text = f"{speed_label} | [-/+] vitesse | [ESPACE] pause"
+            speed_surf = self._font.render(speed_text, True, STATUS_COLOR)
+            screen.blit(speed_surf, (20, self.screen_h - 20))
 
         # Boutons
         for btn in self._buttons:
