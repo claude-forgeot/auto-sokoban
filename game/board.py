@@ -197,3 +197,65 @@ def detect_corner_deadlocks(state: BoardState) -> set[Position]:
         if (up and left) or (up and right) or (down and left) or (down and right):
             deadlocks.add((row, col))
     return deadlocks
+
+
+def _is_frozen(box: Position, state: BoardState, visited: set[Position]) -> bool:
+    """True si la caisse ne peut bouger ni sur l'axe horizontal ni vertical.
+
+    Algorithme axis-by-axis (Sokoban Wiki). `visited` protege contre les
+    cycles en traitant les caisses deja en cours d'evaluation comme
+    pessimistiquement frozen.
+    """
+    if box in visited:
+        return True
+    visited.add(box)
+    try:
+        return _is_frozen_axis(box, state, visited, horizontal=True) and \
+               _is_frozen_axis(box, state, visited, horizontal=False)
+    finally:
+        visited.discard(box)
+
+
+def _is_frozen_axis(
+    box: Position, state: BoardState, visited: set[Position], horizontal: bool
+) -> bool:
+    """True si la caisse ne peut bouger sur l'axe donne (un cote suffit)."""
+    r, c = box
+    if horizontal:
+        n1, n2 = (r, c - 1), (r, c + 1)
+    else:
+        n1, n2 = (r - 1, c), (r + 1, c)
+    return _is_blocker(n1, state, visited) or _is_blocker(n2, state, visited)
+
+
+def _is_blocker(pos: Position, state: BoardState, visited: set[Position]) -> bool:
+    """Une case est bloquante si c'est un mur ou une caisse (recursivement) frozen."""
+    if pos in state.walls:
+        return True
+    if pos in state.boxes:
+        return _is_frozen(pos, state, visited)
+    return False
+
+
+def detect_freeze_deadlocks(state: BoardState) -> set[Position]:
+    """Retourne les caisses frozen : incapables de bouger sur les deux axes.
+
+    Extension recursive de detect_corner_deadlocks : une caisse entouree d'une
+    autre caisse frozen est elle-meme frozen. Les caisses frozen sur cible ne
+    posent pas probleme en soi mais sont retournees pour affichage.
+    Utiliser is_lost() pour savoir si l'etat est perdu.
+    """
+    frozen: set[Position] = set()
+    for box in state.boxes:
+        if _is_frozen(box, state, set()):
+            frozen.add(box)
+    return frozen
+
+
+def is_lost(state: BoardState) -> bool:
+    """True si au moins une caisse frozen est hors cible (niveau perdu)."""
+    if state.is_won():
+        return False
+    return any(
+        box not in state.targets for box in detect_freeze_deadlocks(state)
+    )
