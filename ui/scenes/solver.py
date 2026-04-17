@@ -1,4 +1,6 @@
-"""Scene de resolution automatique avec replay pas-a-pas."""
+"""
+Scene de résolution automatique avec replay pas-à-pas.
+Affiche les résultats de plusieurs algorithmes et permet de les comparer."""
 
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ from solver.a_star import AStar
 from solver.base import Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
+from ui.audio import AudioManager
 from ui.fonts import load_font
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
@@ -32,12 +35,16 @@ class SolverScene(Scene):
         self,
         manager: SceneManager,
         level_meta: LevelMeta,
+        audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
         tile_size: int = 48,
     ) -> None:
         super().__init__(manager)
         self.level_meta = level_meta
+        # MODIFICATION : Ajout du paramétrage audio dans le constructeur
+        # Cela permet à la scene solver d'accéder aux sons
+        self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
 
@@ -73,8 +80,15 @@ class SolverScene(Scene):
 
         self._font: pygame.font.Font | None = None
         self._buttons: list[Button] = []
+        
+        # MODIFICATION : Flag pour vérifier si le son de début a été joué
+        self._game_start_sound_played = False
 
     def on_enter(self) -> None:
+        """Initialise la scene de résolution automatique.
+        
+        Cette méthode est appelée lorsque l'utilisateur accède au mode de résolution automatique. C'est le bon moment pour jouer le son de début et lancer l'algorithme de résolution.
+        """
         self._font = load_font(18)
 
         btn_w, btn_h = 140, 35
@@ -84,12 +98,16 @@ class SolverScene(Scene):
 
         self._buttons = [
             Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
-                   color=(40, 100, 40), hover_color=(60, 140, 60)),
+                    color=(40, 100, 40), hover_color=(60, 140, 60)),
             Button(pygame.Rect(x, y_base + spacing, btn_w, btn_h), "ALGO SUIVANT", Action.SOLVE,
-                   font=self._font, color=(40, 40, 100), hover_color=(60, 60, 140)),
+                    font=self._font, color=(40, 40, 100), hover_color=(60, 60, 140)),
             Button(pygame.Rect(x, y_base + spacing * 2 + 10, btn_w, btn_h), "RETOUR MENU",
-                   Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
+                    Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
+        
+        # MODIFICATION : Jouer le son de début lorsqu'on entre en mode résolution
+        if self.audio is not None:
+            self.audio.play_game_start()
 
         self._run_current_solver()
 
@@ -114,6 +132,7 @@ class SolverScene(Scene):
         self._solver_thread.start()
 
     def handle_events(self) -> None:
+        """Traite les entrées utilisateur."""
         actions = poll_events(self._buttons)
         for action in actions:
             if action == Action.QUIT:
@@ -142,6 +161,7 @@ class SolverScene(Scene):
                     self._run_current_solver()
 
     def update(self) -> None:
+        """Met à jour l'état du replay automatique."""
         # Poller les messages de progression du solveur
         while not self._progress_queue.empty():
             try:
@@ -161,7 +181,7 @@ class SolverScene(Scene):
                 self._replay_done = not self._replaying
                 self._solver_thread = None
 
-        # Replay pas-a-pas
+        # Replay pas-à-pas de la solution
         if not self._replaying:
             return
 
@@ -169,11 +189,31 @@ class SolverScene(Scene):
         if now - self._replay_timer >= REPLAY_DELAY_MS:
             self._replay_timer = now
             self._replay_step += 1
+            
+            # MODIFICATION : Jouer le son lors de chaque pas du replay
+            # On vérifie si une caisse a ete poussée au pas actuel
+            if self._current_result and self._replay_step <= len(self._current_result.steps):
+                # Récuperer l'étape actuelle et l'étape précédente pour comparer
+                current_step_idx = min(self._replay_step - 1, len(self._current_result.steps) - 1)
+                if current_step_idx > 0:
+                    prev_step = self._current_result.steps[current_step_idx - 1]
+                    curr_step = self._current_result.steps[current_step_idx]
+                    # Si les positions des caisses ont change, c'est une poussee
+                    if prev_step.state_snapshot.boxes != curr_step.state_snapshot.boxes:
+                        if self.audio is not None:
+                            self.audio.play_bottle_clank()
+                    else:
+                        # Sinon c'est juste un mouvement
+                        if self.audio is not None:
+                            self.audio.play_sfx("move")
+            
+            # Vérification de fin de replay
             if self._current_result and self._replay_step >= len(self._current_result.steps):
                 self._replaying = False
                 self._replay_done = True
 
     def draw(self, screen: pygame.Surface) -> None:
+        """Dessine la scene de résolution automatique."""
         screen.fill(BG_COLOR)
         assert self._font is not None
 

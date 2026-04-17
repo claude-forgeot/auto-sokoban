@@ -57,8 +57,17 @@ class GameScene(Scene):
         self._player_name = ""
         self._score_saved = False
         self._win_elapsed = 0.0
+        
+        # MODIFICATION : Flag pour vérifier si le son de début a été joué
+        # Cela permet de lancer le son game_start une seule fois au démarrage
+        self._game_start_sound_played = False
 
     def on_enter(self) -> None:
+        """Initialise la scene lorsqu'elle devient active.
+        
+        Cette méthode est appelée au moment où le joueur accède à un nouveau niveau.
+        C'est le bon moment pour jouer le son de début de niveau.
+        """
         pygame.font.init()
         self._font = pygame.font.SysFont("monospace", 18)
 
@@ -70,13 +79,17 @@ class GameScene(Scene):
             Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
             Button(pygame.Rect(x, y + 45, btn_w, btn_h), "REINIT.", Action.RESET, font=self._font),
             Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RESOUDRE", Action.SOLVE, font=self._font,
-                   color=(40, 40, 100), hover_color=(60, 60, 140)),
+                    color=(40, 40, 100), hover_color=(60, 60, 140)),
             Button(pygame.Rect(x, y + 145, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
-                   color=(100, 40, 40), hover_color=(140, 60, 60)),
+                    color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
         self.start_time = time.time()
+        
+        # MODIFICATION : Jouer le son de début de niveau lors de l'entrée en scene
+        self.audio.play_game_start()
 
     def handle_events(self) -> None:
+        """Traite les entrées utilisateur (clavier, souris, boutons)."""
         if self._entering_name:
             self._handle_name_input()
             return
@@ -94,7 +107,16 @@ class GameScene(Scene):
                 direction = _ACTION_TO_DIR[action]
                 if self.board.move(direction):
                     self.move_count += 1
-                    self.audio.play_sfx("push" if self._last_was_push() else "move")
+                    
+                    # MODIFICATION : Utilisation du nouveau son "bottle_clank"
+                    # pour les poussées de caisse au lieu de "push"
+                    # et garder le son "move" pour les mouvements simples
+                    if self._last_was_push():
+                        self.audio.play_bottle_clank()
+                    else:
+                        self.audio.play_sfx("move")
+                    
+                    # Verification de victoire
                     if self.board.is_won():
                         self.won = True
                         self._win_elapsed = time.time() - self.start_time
@@ -104,10 +126,12 @@ class GameScene(Scene):
                 if self.board.undo():
                     self.move_count = max(0, self.move_count - 1)
             elif action == Action.RESET:
+                # MODIFICATION : Quand on réinitialise le niveau, rejouer le son de début
                 self.board.reset()
                 self.move_count = 0
                 self.start_time = time.time()
                 self.won = False
+                self.audio.play_game_start()
             elif action == Action.SOLVE and not self.won:
                 from ui.scenes.solver import SolverScene
                 solver = SolverScene(

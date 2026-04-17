@@ -11,7 +11,14 @@ logger = logging.getLogger(__name__)
 
 _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "audio"
 
-_SFX_NAMES: tuple[str, ...] = ("move", "push", "win", "button")
+# MODIFICATION : Ajout des nouveaux effets sonores pour le jeu : bottle_clank et game_start
+# - "move" : son de mouvement simple du joueur
+# - "push" : son de poussee de caisse (ancien comportement)
+# - "bottle_clank" : son de bouteilles qui s'entrechoquent
+# - "game_start" : son de début de niveau
+# - "win" : son de victoire
+# - "button" : son des boutons UI
+_SFX_NAMES: tuple[str, ...] = ("move", "push", "bottle_clank", "game_start", "win", "button")
 _MUSIC_NAME = "music_loop"
 _SUPPORTED_EXT: tuple[str, ...] = (".wav", ".ogg")
 
@@ -39,6 +46,8 @@ class AudioManager:
             pygame.mixer.init()
         self._mixer_ready = True
 
+        # Charge chaque effet sonore dans le dictionnaire _sfx
+        # La fonction _find_file() cherche le fichier avec les extensions supportees
         for name in _SFX_NAMES:
             path = self._find_file(name)
             if path is None:
@@ -51,6 +60,7 @@ class AudioManager:
             except pygame.error as exc:
                 logger.warning("Impossible de charger %s : %s", path, exc)
 
+        # Charge la musique de fond
         music_path = self._find_file(_MUSIC_NAME)
         if music_path is not None:
             self._music_path = music_path
@@ -66,6 +76,24 @@ class AudioManager:
         sound = self._sfx.get(name)
         if sound is not None:
             sound.play()
+
+    # MODIFICATION : Nouvelle methode pour jouer le son de debut de niveau
+    def play_game_start(self) -> None:
+        """Joue le son de debut de niveau.
+        
+        Ce son est lance lorsque le joueur entre dans un nouveau niveau
+        ou demarre une partie. Il signale le debut du jeu.
+        """
+        self.play_sfx("game_start")
+
+    # MODIFICATION : Nouvelle methode pour jouer le son de poussee de caisse
+    def play_bottle_clank(self) -> None:
+        """Joue le son de bouteilles qui s'entrechoquent.
+        
+        Ce son est lance lors de chaque poussee de caisse pour simuler
+        un bruit realiste de bouteilles en verre qui se heurtent.
+        """
+        self.play_sfx("bottle_clank")
 
     # ------------------------------------------------------------------
     # Musique
