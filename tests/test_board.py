@@ -2,7 +2,7 @@
 
 import pytest
 
-from game.board import Board, Direction
+from game.board import Board, Direction, detect_corner_deadlocks
 
 # Niveau de reference pour les tests (Sokoban classique #1 simplifie)
 #   ####
@@ -250,3 +250,24 @@ class TestFromXsb:
     def test_mismatched_boxes_targets_raises(self):
         with pytest.raises(ValueError, match="caisses"):
             Board.from_xsb("####\n#$@#\n####")
+
+
+class TestDetectCornerDeadlocks:
+    def test_box_in_top_left_corner_is_deadlock(self):
+        # Caisse en (1,1), murs en (0,1) au-dessus et (1,0) a gauche -> coin
+        board = Board.from_xsb("###\n#$ \n#.@")
+        assert (1, 1) in detect_corner_deadlocks(board.state)
+
+    def test_box_on_target_is_not_deadlock(self):
+        # Caisse sur cible en coin -> niveau gagne, pas deadlock
+        board = Board.from_xsb("#####\n#*  #\n# @ #\n#####")
+        assert detect_corner_deadlocks(board.state) == set()
+
+    def test_box_in_open_space_is_not_deadlock(self):
+        board = Board.from_xsb("#####\n# $.#\n# @ #\n#####")
+        assert detect_corner_deadlocks(board.state) == set()
+
+    def test_box_with_only_one_wall_is_not_deadlock(self):
+        # Caisse en (1,2) : mur au-dessus seulement, pas de coin
+        board = Board.from_xsb("######\n# $. #\n# @  #\n######")
+        assert detect_corner_deadlocks(board.state) == set()
