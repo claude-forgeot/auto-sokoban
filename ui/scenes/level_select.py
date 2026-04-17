@@ -564,6 +564,18 @@ class LevelSelectScene(Scene):
         bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
         bar_rect = pygame.Rect(0, self.screen_h - bar_h, self.screen_w, bar_h)
         pygame.draw.rect(screen, PANEL_COLOR, bar_rect)
+
+        assert self._font_small is not None
+        hint_surf = self._font_small.render(
+            "Astuce : double-clic sur un niveau pour le lancer",
+            True,
+            MUTED_COLOR,
+        )
+        screen.blit(
+            hint_surf,
+            (bar_rect.centerx - hint_surf.get_width() // 2, bar_rect.top + 4),
+        )
+
         for btn in self._action_buttons:
             btn.draw(screen)
 
