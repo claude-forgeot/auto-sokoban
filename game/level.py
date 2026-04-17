@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from game.board import Board
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,7 +82,7 @@ def _build_meta(path: Path, difficulty: str, name: str) -> LevelMeta | None:
         text = path.read_text(encoding="utf-8")
         Board.from_xsb(text)
     except (ValueError, UnicodeDecodeError) as e:
-        print(f"[WARN] Niveau ignore {path.name}: {e}", file=sys.stderr)
+        logger.warning("Niveau ignore %s: %s", path.name, e)
         return None
     boxes = _count_boxes(text)
     pack, number = _parse_pack_number(path.stem)
@@ -101,7 +103,9 @@ def list_levels(directory: str | Path) -> list[LevelMeta]:
     Retrocompat : si aucun sous-dossier de difficulte n'existe, scanne a plat et
     deduit la difficulte depuis le nom ou le nombre de caisses.
 
-    Les fichiers invalides sont ignores avec un warning sur stderr.
+    Les fichiers invalides sont ignores avec un warning via logger.
+    Si au moins un fichier .xsb est present mais qu'aucun n'est valide,
+    leve RuntimeError pour eviter un menu de niveaux silencieusement vide.
     """
     d = Path(directory)
     if not d.is_dir():
@@ -109,22 +113,25 @@ def list_levels(directory: str | Path) -> list[LevelMeta]:
 
     subdirs = [d / label for label in _DIFFICULTY_FOLDERS if (d / label).is_dir()]
 
+    xsb_files: list[Path] = []
     levels: list[LevelMeta] = []
     if subdirs:
         for sub in subdirs:
             difficulty = sub.name
             for f in sorted(sub.glob("*.xsb")):
+                xsb_files.append(f)
                 meta = _build_meta(f, difficulty, name=f"{difficulty}/{f.stem}")
                 if meta is not None:
                     levels.append(meta)
     else:
         # Retrocompat : structure a plat.
         for f in sorted(d.glob("*.xsb")):
+            xsb_files.append(f)
             try:
                 text = f.read_text(encoding="utf-8")
                 Board.from_xsb(text)
             except (ValueError, UnicodeDecodeError) as e:
-                print(f"[WARN] Niveau ignore {f.name}: {e}", file=sys.stderr)
+                logger.warning("Niveau ignore %s: %s", f.name, e)
                 continue
             boxes = _count_boxes(text)
             pack, number = _parse_pack_number(f.stem)
@@ -138,6 +145,11 @@ def list_levels(directory: str | Path) -> list[LevelMeta]:
                     number=number,
                 )
             )
+
+    if xsb_files and not levels:
+        raise RuntimeError(
+            f"Aucun niveau valide dans {d} ({len(xsb_files)} .xsb trouves, tous invalides)"
+        )
 
     levels.sort(key=lambda m: (_DIFFICULTY_FOLDERS.index(m.difficulty) if m.difficulty in _DIFFICULTY_FOLDERS else 99, m.name))
     return levels
