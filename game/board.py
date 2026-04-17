@@ -178,3 +178,22 @@ class Board:
             height=height,
         )
         return cls(state)
+
+
+def detect_corner_deadlocks(state: BoardState) -> set[Position]:
+    """Retourne les caisses bloquees dans un coin (2 murs orthogonaux adjacents).
+
+    Une caisse sur une cible n'est jamais consideree en deadlock meme si elle
+    est dans un coin : le niveau reste gagne.
+    """
+    deadlocks: set[Position] = set()
+    for row, col in state.boxes:
+        if (row, col) in state.targets:
+            continue
+        up = (row - 1, col) in state.walls
+        down = (row + 1, col) in state.walls
+        left = (row, col - 1) in state.walls
+        right = (row, col + 1) in state.walls
+        if (up and left) or (up and right) or (down and left) or (down and right):
+            deadlocks.add((row, col))
+    return deadlocks

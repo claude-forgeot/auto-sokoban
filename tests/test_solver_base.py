@@ -23,7 +23,7 @@ class DummySolver(Solver):
         )
 
     def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time):
-        return False, (), 0
+        return False, (), 0, {}
 
 
 class TestSolverStep:

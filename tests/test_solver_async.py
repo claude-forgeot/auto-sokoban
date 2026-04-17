@@ -30,13 +30,14 @@ class DummyAsyncSolver(Solver):
 
     def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time):
         nodes = 0
+        visit_counts = {}
         for _ in range(120):
             if cancel_event.is_set():
-                return False, (), nodes
+                return False, (), nodes, visit_counts
             nodes += 1
             if nodes % 50 == 0:
                 self._report_progress(progress_queue, nodes, start_time)
-        return False, (), nodes
+        return False, (), nodes, visit_counts
 
 
 class TestSolveAsync:
@@ -111,8 +112,11 @@ class TestBFSAsync:
         assert final.result.algo_name == "BFS"
 
         # Les messages intermédiaires sont dans l'ordre croissant
+        # et contiennent les metriques live
         for i in range(len(messages) - 1):
             assert not messages[i].finished
+            assert messages[i].frontier_size >= 0
+            assert messages[i].current_depth >= 0
             if i > 0:
                 assert messages[i].nodes_explored > messages[i - 1].nodes_explored
 
@@ -192,6 +196,20 @@ class TestSolverProgress:
         assert p.nodes_explored == 50
         assert not p.finished
         assert p.result is None
+        assert p.frontier_size == 0
+        assert p.current_depth == 0
+
+    def test_progress_with_live_metrics(self):
+        p = SolverProgress(
+            algo_name="A*",
+            nodes_explored=200,
+            elapsed_ms=45.0,
+            finished=False,
+            frontier_size=150,
+            current_depth=8,
+        )
+        assert p.frontier_size == 150
+        assert p.current_depth == 8
 
     def test_finished_with_result(self):
         result = SolverResult(
@@ -221,3 +239,50 @@ class TestSolverProgress:
             assert False, "devrait lever FrozenInstanceError"
         except AttributeError:
             pass
+
+    def test_visit_counts_default(self):
+        p = SolverProgress("BFS", 10, 1.0, False)
+        assert p.visit_counts == {}
+
+    def test_visit_counts_populated(self):
+        counts = {(1, 1): 5, (2, 3): 2}
+        p = SolverProgress("A*", 100, 50.0, False, visit_counts=counts)
+        assert p.visit_counts == {(1, 1): 5, (2, 3): 2}
+
+
+class TestVisitCountsInSolvers:
+    def test_bfs_visit_counts(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        BFS().solve_async(board.state, "small", q, cancel)
+
+        messages = []
+        while not q.empty():
+            messages.append(q.get_nowait())
+
+        final = messages[-1]
+        assert final.result.visit_counts
+        assert all(isinstance(k, tuple) and len(k) == 2 for k in final.result.visit_counts)
+        assert all(v > 0 for v in final.result.visit_counts.values())
+
+    def test_dfs_visit_counts(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        DFS(max_depth=200).solve_async(board.state, "small", q, cancel)
+
+        final = list(q.queue)[-1]
+        assert final.result.visit_counts
+
+    def test_a_star_visit_counts(self):
+        board = Board.from_xsb(SMALL_LEVEL)
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        AStar().solve_async(board.state, "small", q, cancel)
+
+        final = list(q.queue)[-1]
+        assert final.result.visit_counts

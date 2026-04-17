@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+from typing import TYPE_CHECKING
 
 import pygame
+
+if TYPE_CHECKING:
+    from ui.audio import AudioManager
 
 
 class Action(Enum):
@@ -22,6 +26,10 @@ class Action(Enum):
     PLAY = auto()
     RANKING = auto()
     PAUSE = auto()
+    RACE = auto()
+    HEATMAP = auto()
+    SPEED_UP = auto()
+    SPEED_DOWN = auto()
 
 
 _KEY_MAP: dict[int, Action] = {
@@ -37,18 +45,46 @@ _KEY_MAP: dict[int, Action] = {
     pygame.K_BACKSPACE: Action.UNDO,
     pygame.K_r: Action.RESET,
     pygame.K_F5: Action.SOLVE,
-    pygame.K_ESCAPE: Action.QUIT,
+    pygame.K_ESCAPE: Action.BACK_MENU,
     pygame.K_SPACE: Action.PAUSE,
+    pygame.K_h: Action.HEATMAP,
+    pygame.K_PLUS: Action.SPEED_UP,
+    pygame.K_KP_PLUS: Action.SPEED_UP,
+    pygame.K_EQUALS: Action.SPEED_UP,
+    pygame.K_MINUS: Action.SPEED_DOWN,
+    pygame.K_KP_MINUS: Action.SPEED_DOWN,
 }
 
 
-def poll_events(buttons: list[Button] | None = None) -> list[Action]:
+class PollResult:
+    """Résultat de poll_events : actions et positions de clics bruts."""
+
+    __slots__ = ("actions", "clicks")
+
+    def __init__(self) -> None:
+        self.actions: list[Action] = []
+        self.clicks: list[tuple[int, int]] = []
+
+    def __iter__(self):  # noqa: ANN204
+        return iter(self.actions)
+
+    def __bool__(self) -> bool:
+        return bool(self.actions)
+
+
+def poll_events(
+    buttons: list[Button] | None = None,
+    audio: AudioManager | None = None,
+) -> PollResult:
     """Consomme les événements Pygame et retourne les actions correspondantes.
 
     Gère aussi les clics sur les ``Button`` fournis (hover + click).
     ``QUIT`` est émis à la fermeture de la fenêtre.
+    Si *audio* est fourni, joue le SFX ``button`` lors d'un clic bouton.
+    ``PollResult.clicks`` contient les positions (x, y) de tous les clics
+    gauches non captés par un bouton.
     """
-    actions: list[Action] = []
+    result = PollResult()
     mouse_pos = pygame.mouse.get_pos()
 
     if buttons:
@@ -57,21 +93,27 @@ def poll_events(buttons: list[Button] | None = None) -> list[Action]:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            actions.append(Action.QUIT)
+            result.actions.append(Action.QUIT)
 
         elif event.type == pygame.KEYDOWN:
             action = _KEY_MAP.get(event.key)
             if action is not None:
-                actions.append(action)
+                result.actions.append(action)
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            matched = False
             if buttons:
                 for btn in buttons:
                     if btn.rect.collidepoint(event.pos):
-                        actions.append(btn.action)
+                        result.actions.append(btn.action)
+                        if audio is not None:
+                            audio.play_sfx("button")
+                        matched = True
                         break
+            if not matched:
+                result.clicks.append(event.pos)
 
-    return actions
+    return result
 
 
 class Button:
@@ -96,14 +138,26 @@ class Button:
         self.hover_color = hover_color
         self.text_color = text_color
         self.hovered = False
+        self.pressed = False
 
     def draw(self, surface: pygame.Surface) -> None:
         """Dessine le bouton sur la surface donnée."""
-        bg = self.hover_color if self.hovered else self.color
-        pygame.draw.rect(surface, bg, self.rect, border_radius=4)
-        pygame.draw.rect(surface, self.text_color, self.rect, width=1, border_radius=4)
+        # Détection pressed : hover + bouton souris enfoncé
+        self.pressed = self.hovered and pygame.mouse.get_pressed()[0]
 
-        font = self.font or pygame.font.SysFont("monospace", 18)
+        draw_rect = self.rect.copy()
+        if self.pressed:
+            draw_rect.y += 2
+
+        bg = self.hover_color if self.hovered else self.color
+        pygame.draw.rect(surface, bg, draw_rect, border_radius=4)
+        pygame.draw.rect(surface, self.text_color, draw_rect, width=1, border_radius=4)
+
+        if self.font is not None:
+            font = self.font
+        else:
+            from ui.fonts import load_font
+            font = load_font(18)
         text_surf = font.render(self.label, True, self.text_color)
-        text_rect = text_surf.get_rect(center=self.rect.center)
+        text_rect = text_surf.get_rect(center=draw_rect.center)
         surface.blit(text_surf, text_rect)

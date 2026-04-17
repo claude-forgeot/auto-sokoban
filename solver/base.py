@@ -7,7 +7,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from game.board import BoardState, Direction
 
@@ -21,6 +21,9 @@ class SolverStep:
     nodes_explored_so_far: int
 
 
+VisitCounts = dict[tuple[int, int], int]
+
+
 @dataclass(frozen=True)
 class SolverResult:
     """Resultat complet d'une resolution."""
@@ -32,6 +35,7 @@ class SolverResult:
     solution_length: int
     algo_name: str
     level_name: str
+    visit_counts: VisitCounts = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -43,6 +47,9 @@ class SolverProgress:
     elapsed_ms: float
     finished: bool
     result: SolverResult | None = None
+    frontier_size: int = 0
+    current_depth: int = 0
+    visit_counts: VisitCounts = field(default_factory=dict)
 
 
 class Solver(ABC):
@@ -112,6 +119,9 @@ class Solver(ABC):
         progress_queue: queue.Queue[SolverProgress],
         nodes_explored: int,
         start_time: float,
+        frontier_size: int = 0,
+        current_depth: int = 0,
+        visit_counts: VisitCounts | None = None,
     ) -> None:
         """Envoie un message de progression dans la queue."""
         elapsed = (time.perf_counter() - start_time) * 1000
@@ -120,6 +130,9 @@ class Solver(ABC):
             nodes_explored=nodes_explored,
             elapsed_ms=elapsed,
             finished=False,
+            frontier_size=frontier_size,
+            current_depth=current_depth,
+            visit_counts=dict(visit_counts) if visit_counts else {},
         ))
 
     def solve_async(
@@ -131,7 +144,7 @@ class Solver(ABC):
     ) -> None:
         """Résout le niveau et envoie la progression via la queue."""
         start = time.perf_counter()
-        found, steps, nodes = self._search_async(
+        found, steps, nodes, visits = self._search_async(
             initial, level_name, progress_queue, cancel_event, start,
         )
         elapsed = (time.perf_counter() - start) * 1000
@@ -143,6 +156,7 @@ class Solver(ABC):
             solution_length=len(steps),
             algo_name=self.name,
             level_name=level_name,
+            visit_counts=visits,
         )
         progress_queue.put(SolverProgress(
             algo_name=self.name,
@@ -150,6 +164,7 @@ class Solver(ABC):
             elapsed_ms=elapsed,
             finished=True,
             result=result,
+            visit_counts=visits,
         ))
 
     @abstractmethod
@@ -160,7 +175,7 @@ class Solver(ABC):
         progress_queue: queue.Queue[SolverProgress],
         cancel_event: threading.Event,
         start_time: float,
-    ) -> tuple[bool, tuple[SolverStep, ...], int]:
+    ) -> tuple[bool, tuple[SolverStep, ...], int, VisitCounts]:
         """Version async de _search, avec progression et annulation."""
         ...
 
