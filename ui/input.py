@@ -30,6 +30,7 @@ class Action(Enum):
     HEATMAP = auto()
     SPEED_UP = auto()
     SPEED_DOWN = auto()
+    ABANDON = auto()
 
 
 _KEY_MAP: dict[int, Action] = {
@@ -57,13 +58,14 @@ _KEY_MAP: dict[int, Action] = {
 
 
 class PollResult:
-    """Résultat de poll_events : actions et positions de clics bruts."""
+    """Résultat de poll_events : actions, clics bruts, event resize eventuel."""
 
-    __slots__ = ("actions", "clicks")
+    __slots__ = ("actions", "clicks", "resize")
 
     def __init__(self) -> None:
         self.actions: list[Action] = []
         self.clicks: list[tuple[int, int]] = []
+        self.resize: tuple[int, int] | None = None
 
     def __iter__(self):  # noqa: ANN204
         return iter(self.actions)
@@ -94,6 +96,9 @@ def poll_events(
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             result.actions.append(Action.QUIT)
+
+        elif event.type == pygame.VIDEORESIZE:
+            result.resize = (event.w, event.h)
 
         elif event.type == pygame.KEYDOWN:
             action = _KEY_MAP.get(event.key)

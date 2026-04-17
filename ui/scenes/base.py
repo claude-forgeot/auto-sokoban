@@ -34,6 +34,9 @@ class Scene(ABC):
     def on_exit(self) -> None:
         """Appele quand la scene est remplacee."""
 
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        """Appele lors d'un redimensionnement de fenetre. Override si besoin."""
+
 
 class SceneManager:
     """Gere la scene active et les transitions."""
