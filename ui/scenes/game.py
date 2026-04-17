@@ -189,6 +189,7 @@ class GameScene(Scene):
                     from ui.scenes.solver import SolverScene
                     solver = SolverScene(
                         self.manager, self.level_meta,
+                        audio=self.audio,
                         screen_w=self.screen_w, screen_h=self.screen_h,
                     )
                     self.manager.switch(solver)
