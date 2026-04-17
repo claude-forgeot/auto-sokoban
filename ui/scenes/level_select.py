@@ -207,6 +207,8 @@ class LevelSelectScene(Scene):
     def handle_events(self) -> None:
         result = poll_events(self._action_buttons, audio=self.audio)
 
+        grid_rect = self._grid_panel_rect()
+
         # Gestion clics onglets : on inspecte les clics bruts pour router par index
         # plutot que via l'enum Action (un onglet = un bouton avec meme Action).
         for cx, cy in list(result.clicks):
@@ -222,6 +224,9 @@ class LevelSelectScene(Scene):
                 continue
 
             # Grille : clic sur une cellule selectionne / double-clic lance.
+            # On ignore les clics hors viewport (cellules scrollees hors ecran).
+            if not grid_rect.collidepoint(cx, cy):
+                continue
             for i, rect in enumerate(self._cell_rects):
                 if rect.collidepoint(cx, cy):
                     now = pygame.time.get_ticks()
@@ -249,6 +254,10 @@ class LevelSelectScene(Scene):
                 self._move_selection(-GRID_COLS)
             elif action == Action.MOVE_DOWN:
                 self._move_selection(GRID_COLS)
+            elif action == Action.SCROLL_UP:
+                self._scroll_by(-self._scroll_step())
+            elif action == Action.SCROLL_DOWN:
+                self._scroll_by(self._scroll_step())
 
     def _set_active_tab(self, idx: int) -> None:
         self._active_difficulty_idx = idx
@@ -263,6 +272,56 @@ class LevelSelectScene(Scene):
         current = self._selected_in_tab[diff]
         new = max(0, min(len(levels) - 1, current + delta))
         self._selected_in_tab[diff] = new
+        self._ensure_selection_visible()
+
+    def _grid_panel_rect(self) -> pygame.Rect:
+        tab_h = self._scaled(TAB_BAR_H, vertical=True)
+        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
+        panel_w = self._scaled(GRID_PANEL_W)
+        return pygame.Rect(0, tab_h, panel_w, self.screen_h - tab_h - bar_h)
+
+    def _cell_height(self) -> int:
+        thumb_h = self._scaled(THUMB_H, vertical=True)
+        return thumb_h + self._scaled(CELL_PAD_Y + 16, vertical=True)
+
+    def _content_height(self, levels: list[LevelMeta]) -> int:
+        if not levels:
+            return 0
+        rows = (len(levels) + GRID_COLS - 1) // GRID_COLS
+        top_pad = self._scaled(12, vertical=True)
+        return top_pad + rows * self._cell_height()
+
+    def _max_scroll(self) -> int:
+        diff = DIFFICULTIES[self._active_difficulty_idx]
+        levels = self.levels_by_difficulty[diff]
+        panel_h = self._grid_panel_rect().height
+        return max(0, self._content_height(levels) - panel_h)
+
+    def _scroll_step(self) -> int:
+        return self._cell_height()
+
+    def _scroll_by(self, delta: int) -> None:
+        self._scroll_offset = max(0, min(self._max_scroll(), self._scroll_offset + delta))
+
+    def _ensure_selection_visible(self) -> None:
+        """Ajuste _scroll_offset pour garder la cellule selectionnee visible."""
+        diff = DIFFICULTIES[self._active_difficulty_idx]
+        levels = self.levels_by_difficulty[diff]
+        if not levels:
+            return
+        idx = self._selected_in_tab[diff]
+        row = idx // GRID_COLS
+        cell_h = self._cell_height()
+        top_pad = self._scaled(12, vertical=True)
+        cell_top = top_pad + row * cell_h
+        cell_bottom = cell_top + cell_h
+        panel_h = self._grid_panel_rect().height
+
+        if cell_top < self._scroll_offset:
+            self._scroll_offset = cell_top
+        elif cell_bottom > self._scroll_offset + panel_h:
+            self._scroll_offset = cell_bottom - panel_h
+        self._scroll_offset = max(0, min(self._max_scroll(), self._scroll_offset))
 
     def _selected_level(self) -> LevelMeta | None:
         diff = DIFFICULTIES[self._active_difficulty_idx]
@@ -336,10 +395,7 @@ class LevelSelectScene(Scene):
         levels = self.levels_by_difficulty[diff]
         selected_idx = self._selected_in_tab[diff]
 
-        tab_h = self._scaled(TAB_BAR_H, vertical=True)
-        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
-        panel_w = self._scaled(GRID_PANEL_W)
-        panel_rect = pygame.Rect(0, tab_h, panel_w, self.screen_h - tab_h - bar_h)
+        panel_rect = self._grid_panel_rect()
         pygame.draw.rect(screen, PANEL_COLOR, panel_rect)
 
         self._cell_rects = []
@@ -354,13 +410,19 @@ class LevelSelectScene(Scene):
             )
             return
 
+        # Clamp scroll au cas ou la geometrie a change (resize).
+        self._scroll_offset = max(0, min(self._max_scroll(), self._scroll_offset))
+
         thumb_w = self._scaled(THUMB_W)
         thumb_h = self._scaled(THUMB_H, vertical=True)
         cell_w = thumb_w + self._scaled(CELL_PAD_X)
-        cell_h = thumb_h + self._scaled(CELL_PAD_Y + 16, vertical=True)
+        cell_h = self._cell_height()
         origin_x = self._scaled(GRID_X_ORIGIN)
-        origin_y = tab_h + self._scaled(12, vertical=True)
+        origin_y = panel_rect.top + self._scaled(12, vertical=True)
         label_h = self._scaled(20, vertical=True)
+
+        prev_clip = screen.get_clip()
+        screen.set_clip(panel_rect)
 
         for i, lvl in enumerate(levels):
             col = i % GRID_COLS
@@ -370,10 +432,13 @@ class LevelSelectScene(Scene):
             cell_rect = pygame.Rect(cx, cy, thumb_w, thumb_h + label_h)
             self._cell_rects.append(cell_rect)
 
+            # Skip cellules entierement hors viewport.
+            if cell_rect.bottom < panel_rect.top or cell_rect.top > panel_rect.bottom:
+                continue
+
             # Vignette.
             thumb = self._thumbnails.get(lvl.name)
             if thumb is not None:
-                # Scale vignette si la taille a change par rapport au cache.
                 if thumb.get_size() != (thumb_w, thumb_h):
                     thumb = pygame.transform.scale(thumb, (thumb_w, thumb_h))
                 screen.blit(thumb, (cx, cy))
@@ -385,7 +450,6 @@ class LevelSelectScene(Scene):
                 screen.blit(mark_surf, (cx + thumb_w - mark_surf.get_width() - 4, cy + 4))
 
             if i == selected_idx:
-                # Pulsation de la bordure + halo bleu semi-transparent.
                 pulse = (math.sin(pygame.time.get_ticks() / 400.0) + 1) / 2  # [0, 1]
                 border_w = 2 + int(round(2 * pulse))
                 halo = pygame.Surface(cell_rect.size, pygame.SRCALPHA)
@@ -400,6 +464,32 @@ class LevelSelectScene(Scene):
                 name_surf,
                 (cx + (thumb_w - name_surf.get_width()) // 2, cy + thumb_h + 2),
             )
+
+        screen.set_clip(prev_clip)
+        self._draw_scrollbar(screen, panel_rect, levels)
+
+    def _draw_scrollbar(
+        self,
+        screen: pygame.Surface,
+        panel_rect: pygame.Rect,
+        levels: list[LevelMeta],
+    ) -> None:
+        """Dessine une scrollbar passive a droite du panneau grille."""
+        content_h = self._content_height(levels)
+        if content_h <= panel_rect.height:
+            return
+        track_w = 6
+        track_x = panel_rect.right - track_w - 2
+        track_rect = pygame.Rect(track_x, panel_rect.top + 4, track_w, panel_rect.height - 8)
+        pygame.draw.rect(screen, (50, 50, 65), track_rect, border_radius=3)
+
+        ratio = panel_rect.height / content_h
+        thumb_h = max(20, int(track_rect.height * ratio))
+        max_scroll = self._max_scroll()
+        progress = self._scroll_offset / max_scroll if max_scroll > 0 else 0.0
+        thumb_y = track_rect.top + int((track_rect.height - thumb_h) * progress)
+        thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_w, thumb_h)
+        pygame.draw.rect(screen, HIGHLIGHT_BORDER, thumb_rect, border_radius=3)
 
     def _draw_preview(self, screen: pygame.Surface) -> None:
         tab_h = self._scaled(TAB_BAR_H, vertical=True)

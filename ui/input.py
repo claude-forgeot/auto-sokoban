@@ -33,6 +33,8 @@ class Action(Enum):
     ABANDON = auto()
     STOP_SOLVER = auto()
     CYCLE_TIMEOUT = auto()
+    SCROLL_UP = auto()
+    SCROLL_DOWN = auto()
 
 
 _KEY_MAP: dict[int, Action] = {
@@ -57,6 +59,8 @@ _KEY_MAP: dict[int, Action] = {
     pygame.K_MINUS: Action.SPEED_DOWN,
     pygame.K_KP_MINUS: Action.SPEED_DOWN,
     pygame.K_t: Action.CYCLE_TIMEOUT,
+    pygame.K_PAGEUP: Action.SCROLL_UP,
+    pygame.K_PAGEDOWN: Action.SCROLL_DOWN,
 }
 
 
@@ -107,6 +111,12 @@ def poll_events(
             action = _KEY_MAP.get(event.key)
             if action is not None:
                 result.actions.append(action)
+
+        elif event.type == pygame.MOUSEWHEEL:
+            if event.y > 0:
+                result.actions.append(Action.SCROLL_UP)
+            elif event.y < 0:
+                result.actions.append(Action.SCROLL_DOWN)
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             matched = False
