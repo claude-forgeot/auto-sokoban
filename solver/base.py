@@ -39,7 +39,7 @@ class SolverResult:
     solution_length: int
     algo_name: str
     level_name: str
-    visit_counts: VisitCounts = field(default_factory=dict)
+    visit_counts: VisitCounts = field(default_factory=dict, hash=False, compare=False)
     stop_reason: StopReason = "exhausted"
 
 
@@ -54,7 +54,7 @@ class SolverProgress:
     result: SolverResult | None = None
     frontier_size: int = 0
     current_depth: int = 0
-    visit_counts: VisitCounts = field(default_factory=dict)
+    visit_counts: VisitCounts = field(default_factory=dict, hash=False, compare=False)
 
 
 class Solver(ABC):
