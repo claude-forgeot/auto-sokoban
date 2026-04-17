@@ -28,16 +28,16 @@ class DummyAsyncSolver(Solver):
             algo_name=self.name, level_name=level_name,
         )
 
-    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time):
+    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time, timeout_ms=None):
         nodes = 0
         visit_counts = {}
         for _ in range(120):
             if cancel_event.is_set():
-                return False, (), nodes, visit_counts
+                return False, (), nodes, visit_counts, "user_cancelled"
             nodes += 1
             if nodes % 50 == 0:
                 self._report_progress(progress_queue, nodes, start_time)
-        return False, (), nodes, visit_counts
+        return False, (), nodes, visit_counts, "exhausted"
 
 
 class TestSolveAsync:

@@ -12,7 +12,7 @@ import pygame
 from game.level import LevelMeta, load_level
 from solver.a_star import AStar
 from game.board import Direction
-from solver.base import Solver, SolverProgress, SolverResult
+from solver.base import DEFAULT_TIMEOUT_MS, Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
@@ -34,6 +34,9 @@ REPLAY_SPEEDS = [
     ("4x", 75),
 ]
 DEFAULT_SPEED_IDX = 2  # 1x
+
+TIMEOUT_OPTIONS_MS = [30_000, 60_000, 180_000]
+DEFAULT_TIMEOUT_IDX = TIMEOUT_OPTIONS_MS.index(DEFAULT_TIMEOUT_MS)
 
 
 class SolverScene(Scene):
@@ -88,7 +91,9 @@ class SolverScene(Scene):
         self._font: pygame.font.Font | None = None
         self._buttons: list[Button] = []
         self._stop_button: Button | None = None
+        self._timeout_button: Button | None = None
         self._stopped = False
+        self._timeout_idx = DEFAULT_TIMEOUT_IDX
         
         # MODIFICATION : Flag pour vérifier si le son de début a été joué
         self._game_start_sound_played = False
@@ -138,6 +143,18 @@ class SolverScene(Scene):
             color=(160, 30, 30),
             hover_color=(200, 50, 50),
         )
+        self._timeout_button = Button(
+            pygame.Rect(x, y_base - spacing * 2, btn_w, btn_h),
+            self._timeout_label(),
+            Action.CYCLE_TIMEOUT,
+            font=self._font,
+            color=(60, 60, 80),
+            hover_color=(90, 90, 120),
+        )
+
+    def _timeout_label(self) -> str:
+        seconds = TIMEOUT_OPTIONS_MS[self._timeout_idx] // 1000
+        return f"TIMEOUT {seconds}s [T]"
 
     def on_enter(self) -> None:
         """Initialise la scene de résolution automatique.
@@ -178,9 +195,10 @@ class SolverScene(Scene):
         self._visit_counts = {}
         self._stopped = False
 
+        timeout_ms = TIMEOUT_OPTIONS_MS[self._timeout_idx]
         self._solver_thread = threading.Thread(
             target=solver.solve_async,
-            args=(initial, self.level_meta.name, self._progress_queue, self._cancel_event),
+            args=(initial, self.level_meta.name, self._progress_queue, self._cancel_event, timeout_ms),
             daemon=True,
         )
         self._solver_thread.start()
@@ -191,6 +209,8 @@ class SolverScene(Scene):
         buttons = list(self._buttons)
         if solver_running and self._stop_button is not None:
             buttons.append(self._stop_button)
+        if not solver_running and self._timeout_button is not None:
+            buttons.append(self._timeout_button)
         actions = poll_events(buttons)
         for action in actions:
             if action == Action.QUIT:
@@ -199,6 +219,11 @@ class SolverScene(Scene):
                 if solver_running:
                     self._cancel_event.set()
                     self._stopped = True
+            elif action == Action.CYCLE_TIMEOUT:
+                if not solver_running:
+                    self._timeout_idx = (self._timeout_idx + 1) % len(TIMEOUT_OPTIONS_MS)
+                    if self._timeout_button is not None:
+                        self._timeout_button.label = self._timeout_label()
             elif action == Action.BACK_MENU:
                 self._cancel_event.set()
                 if self.audio is not None:
@@ -367,12 +392,16 @@ class SolverScene(Scene):
             screen.blit(status_surf, (20, self.screen_h - 40))
         elif self._current_result:
             algo = self._current_result.algo_name
-            if self._stopped:
-                status = f"[{algo}] Résolution stoppée"
-            elif self._replaying:
+            reason = self._current_result.stop_reason
+            if self._replaying:
                 status = f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
             elif self._all_done:
                 status = "Tous les algorithmes terminés - Comparaison finale"
+            elif reason == "user_cancelled":
+                status = f"[{algo}] Résolution stoppée"
+            elif reason == "timeout":
+                timeout_s = TIMEOUT_OPTIONS_MS[self._timeout_idx] // 1000
+                status = f"[{algo}] Timeout atteint ({timeout_s}s) - Pas de solution"
             elif self._replay_done:
                 status = f"[{algo}] Terminé - Appuyez sur ALGO SUIVANT"
             elif not self._current_result.found:
@@ -396,3 +425,5 @@ class SolverScene(Scene):
             btn.draw(screen)
         if solver_running and self._stop_button is not None:
             self._stop_button.draw(screen)
+        if not solver_running and self._timeout_button is not None:
+            self._timeout_button.draw(screen)

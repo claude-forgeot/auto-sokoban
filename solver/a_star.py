@@ -8,7 +8,7 @@ import threading
 import time
 
 from game.board import BoardState, Direction
-from solver.base import Solver, SolverResult, SolverStep, timer
+from solver.base import Solver, SolverResult, SolverStep, StopReason, timer
 
 
 def _manhattan_heuristic(state: BoardState) -> int:
@@ -95,9 +95,10 @@ class AStar(Solver):
         progress_queue: queue.Queue,
         cancel_event: threading.Event,
         start_time: float,
-    ) -> tuple[bool, tuple[SolverStep, ...], int, dict[tuple[int, int], int]]:
+        timeout_ms: int | None,
+    ) -> tuple[bool, tuple[SolverStep, ...], int, dict[tuple[int, int], int], StopReason]:
         if initial.is_won():
-            return True, (), 0, {}
+            return True, (), 0, {}, "found"
 
         counter = 0
         h = _manhattan_heuristic(initial)
@@ -110,7 +111,10 @@ class AStar(Solver):
 
         while heap:
             if cancel_event.is_set():
-                return False, (), nodes_explored, visit_counts
+                return False, (), nodes_explored, visit_counts, "user_cancelled"
+
+            if timeout_ms is not None and (time.perf_counter() - start_time) * 1000 > timeout_ms:
+                return False, (), nodes_explored, visit_counts, "timeout"
 
             _, _, g, state, path = heapq.heappop(heap)
 
@@ -143,11 +147,11 @@ class AStar(Solver):
 
                 if new_state.is_won():
                     steps = self.build_steps(initial, new_path, nodes_explored)
-                    return True, steps, nodes_explored, visit_counts
+                    return True, steps, nodes_explored, visit_counts, "found"
 
                 h = _manhattan_heuristic(new_state)
                 counter += 1
                 heapq.heappush(heap, (new_g + h, counter, new_g, new_state, new_path))
 
-        return False, (), nodes_explored, visit_counts
+        return False, (), nodes_explored, visit_counts, "exhausted"
 

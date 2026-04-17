@@ -7,7 +7,7 @@ import threading
 import time
 
 from game.board import BoardState, Direction
-from solver.base import Solver, SolverResult, SolverStep, timer
+from solver.base import Solver, SolverResult, SolverStep, StopReason, timer
 
 
 class DFS(Solver):
@@ -78,9 +78,10 @@ class DFS(Solver):
         progress_queue: queue.Queue,
         cancel_event: threading.Event,
         start_time: float,
-    ) -> tuple[bool, tuple[SolverStep, ...], int, dict[tuple[int, int], int]]:
+        timeout_ms: int | None,
+    ) -> tuple[bool, tuple[SolverStep, ...], int, dict[tuple[int, int], int], StopReason]:
         if initial.is_won():
-            return True, (), 0, {}
+            return True, (), 0, {}, "found"
 
         visited: set[BoardState] = {initial}
         stack: list[tuple[BoardState, list[Direction], int]] = [
@@ -91,7 +92,10 @@ class DFS(Solver):
 
         while stack:
             if cancel_event.is_set():
-                return False, (), nodes_explored, visit_counts
+                return False, (), nodes_explored, visit_counts, "user_cancelled"
+
+            if timeout_ms is not None and (time.perf_counter() - start_time) * 1000 > timeout_ms:
+                return False, (), nodes_explored, visit_counts, "timeout"
 
             state, path, depth = stack.pop()
             nodes_explored += 1
@@ -119,9 +123,9 @@ class DFS(Solver):
 
                 if new_state.is_won():
                     steps = self.build_steps(initial, new_path, nodes_explored)
-                    return True, steps, nodes_explored, visit_counts
+                    return True, steps, nodes_explored, visit_counts, "found"
 
                 stack.append((new_state, new_path, depth + 1))
 
-        return False, (), nodes_explored, visit_counts
+        return False, (), nodes_explored, visit_counts, "exhausted"
 

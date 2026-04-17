@@ -8,8 +8,12 @@ import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import Literal
 
 from game.board import BoardState, Direction
+
+StopReason = Literal["found", "exhausted", "timeout", "user_cancelled"]
+DEFAULT_TIMEOUT_MS = 60_000
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,7 @@ class SolverResult:
     algo_name: str
     level_name: str
     visit_counts: VisitCounts = field(default_factory=dict)
+    stop_reason: StopReason = "exhausted"
 
 
 @dataclass(frozen=True)
@@ -141,11 +146,15 @@ class Solver(ABC):
         level_name: str,
         progress_queue: queue.Queue[SolverProgress],
         cancel_event: threading.Event,
+        timeout_ms: int | None = DEFAULT_TIMEOUT_MS,
     ) -> None:
-        """Résout le niveau et envoie la progression via la queue."""
+        """Résout le niveau et envoie la progression via la queue.
+
+        timeout_ms : délai maximum avant arrêt automatique. None = pas de limite.
+        """
         start = time.perf_counter()
-        found, steps, nodes, visits = self._search_async(
-            initial, level_name, progress_queue, cancel_event, start,
+        found, steps, nodes, visits, reason = self._search_async(
+            initial, level_name, progress_queue, cancel_event, start, timeout_ms,
         )
         elapsed = (time.perf_counter() - start) * 1000
         result = SolverResult(
@@ -157,6 +166,7 @@ class Solver(ABC):
             algo_name=self.name,
             level_name=level_name,
             visit_counts=visits,
+            stop_reason=reason,
         )
         progress_queue.put(SolverProgress(
             algo_name=self.name,
@@ -175,8 +185,9 @@ class Solver(ABC):
         progress_queue: queue.Queue[SolverProgress],
         cancel_event: threading.Event,
         start_time: float,
-    ) -> tuple[bool, tuple[SolverStep, ...], int, VisitCounts]:
-        """Version async de _search, avec progression et annulation."""
+        timeout_ms: int | None,
+    ) -> tuple[bool, tuple[SolverStep, ...], int, VisitCounts, StopReason]:
+        """Version async de _search, avec progression, annulation et timeout."""
         ...
 
 

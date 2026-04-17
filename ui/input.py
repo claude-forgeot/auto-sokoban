@@ -32,6 +32,7 @@ class Action(Enum):
     SPEED_DOWN = auto()
     ABANDON = auto()
     STOP_SOLVER = auto()
+    CYCLE_TIMEOUT = auto()
 
 
 _KEY_MAP: dict[int, Action] = {
@@ -55,6 +56,7 @@ _KEY_MAP: dict[int, Action] = {
     pygame.K_EQUALS: Action.SPEED_UP,
     pygame.K_MINUS: Action.SPEED_DOWN,
     pygame.K_KP_MINUS: Action.SPEED_DOWN,
+    pygame.K_t: Action.CYCLE_TIMEOUT,
 }
 
 
