@@ -31,6 +31,7 @@ class Action(Enum):
     SPEED_UP = auto()
     SPEED_DOWN = auto()
     ABANDON = auto()
+    STOP_SOLVER = auto()
 
 
 _KEY_MAP: dict[int, Action] = {

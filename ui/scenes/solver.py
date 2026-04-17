@@ -87,6 +87,8 @@ class SolverScene(Scene):
 
         self._font: pygame.font.Font | None = None
         self._buttons: list[Button] = []
+        self._stop_button: Button | None = None
+        self._stopped = False
         
         # MODIFICATION : Flag pour vérifier si le son de début a été joué
         self._game_start_sound_played = False
@@ -128,6 +130,14 @@ class SolverScene(Scene):
             Button(pygame.Rect(x, y_base + spacing * 3 + 10, btn_w, btn_h), "RETOUR MENU",
                    Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
+        self._stop_button = Button(
+            pygame.Rect(x, y_base - spacing, btn_w, btn_h),
+            "STOP",
+            Action.STOP_SOLVER,
+            font=self._font,
+            color=(160, 30, 30),
+            hover_color=(200, 50, 50),
+        )
 
     def on_enter(self) -> None:
         """Initialise la scene de résolution automatique.
@@ -166,6 +176,7 @@ class SolverScene(Scene):
         self._progress_queue = queue.Queue()
         self._cancel_event = threading.Event()
         self._visit_counts = {}
+        self._stopped = False
 
         self._solver_thread = threading.Thread(
             target=solver.solve_async,
@@ -176,10 +187,18 @@ class SolverScene(Scene):
 
     def handle_events(self) -> None:
         """Traite les entrées utilisateur."""
-        actions = poll_events(self._buttons)
+        solver_running = self._solver_thread is not None and self._solver_thread.is_alive()
+        buttons = list(self._buttons)
+        if solver_running and self._stop_button is not None:
+            buttons.append(self._stop_button)
+        actions = poll_events(buttons)
         for action in actions:
             if action == Action.QUIT:
                 self.manager.quit()
+            elif action == Action.STOP_SOLVER:
+                if solver_running:
+                    self._cancel_event.set()
+                    self._stopped = True
             elif action == Action.BACK_MENU:
                 self._cancel_event.set()
                 if self.audio is not None:
@@ -340,12 +359,17 @@ class SolverScene(Scene):
         # Status
         if self._solver_thread is not None and self._solver_thread.is_alive():
             algo = self._solvers[self._current_solver_idx].name
-            status = f"[{algo}] Résolution en cours..."
+            if self._stopped:
+                status = f"[{algo}] Arrêt en cours..."
+            else:
+                status = f"[{algo}] Résolution en cours..."
             status_surf = self._font.render(status, True, STATUS_COLOR)
             screen.blit(status_surf, (20, self.screen_h - 40))
         elif self._current_result:
             algo = self._current_result.algo_name
-            if self._replaying:
+            if self._stopped:
+                status = f"[{algo}] Résolution stoppée"
+            elif self._replaying:
                 status = f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
             elif self._all_done:
                 status = "Tous les algorithmes terminés - Comparaison finale"
@@ -370,3 +394,5 @@ class SolverScene(Scene):
         # Boutons
         for btn in self._buttons:
             btn.draw(screen)
+        if solver_running and self._stop_button is not None:
+            self._stop_button.draw(screen)
