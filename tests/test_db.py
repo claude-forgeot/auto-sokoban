@@ -31,12 +31,20 @@ class TestGetBestForLevel:
     def test_none_when_db_empty(self, tmp_db):
         assert db.get_best_for_level("easy_1") is None
 
-    def test_returns_min_moves_and_time(self, tmp_db):
+    def test_returns_best_record_as_single_row(self, tmp_db):
+        """Le meilleur score est une ligne reelle (pas un melange min/min)."""
         db.save_score("alice", "easy_1", 20, 30.0)
         db.save_score("bob", "easy_1", 15, 45.0)
         db.save_score("carol", "easy_1", 18, 25.0)
         best = db.get_best_for_level("easy_1")
-        assert best == (15, 25.0)
+        # bob a le moins de coups (15) => sa ligne gagne
+        assert best == (15, 45.0)
+
+    def test_tiebreaker_on_time_when_moves_equal(self, tmp_db):
+        """A egalite de coups, le temps le plus court gagne."""
+        db.save_score("alice", "easy_1", 15, 60.0)
+        db.save_score("bob", "easy_1", 15, 30.0)
+        assert db.get_best_for_level("easy_1") == (15, 30.0)
 
     def test_isolated_per_level(self, tmp_db):
         db.save_score("alice", "easy_1", 10, 5.0)
