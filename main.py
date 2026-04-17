@@ -2,25 +2,39 @@
 
 import pygame
 
+from ui.layout import BASE_H, BASE_W, clamp_window_size
 from ui.scenes.base import SceneManager
 from ui.scenes.menu import MenuScene
 
-SCREEN_W = 800
-SCREEN_H = 600
 FPS = 30
 
 
 def main() -> None:
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+    screen = pygame.display.set_mode((BASE_W, BASE_H), pygame.RESIZABLE)
     pygame.display.set_caption("Auto-Sokoban")
     clock = pygame.time.Clock()
 
     manager = SceneManager()
-    menu = MenuScene(manager, screen_w=SCREEN_W, screen_h=SCREEN_H)
+    menu = MenuScene(manager, screen_w=BASE_W, screen_h=BASE_H)
     manager.switch(menu)
 
+    current_w, current_h = BASE_W, BASE_H
+
     while manager.running:
+        # Ecoute brute VIDEORESIZE au niveau main (poll_events est aussi appele
+        # par chaque scene, mais un resize pre-scene garantit que la surface
+        # est a jour avant le prochain draw).
+        for event in pygame.event.get(pygame.VIDEORESIZE):
+            new_w, new_h = clamp_window_size(event.w, event.h)
+            if (new_w, new_h) != (current_w, current_h):
+                current_w, current_h = new_w, new_h
+                screen = pygame.display.set_mode(
+                    (current_w, current_h), pygame.RESIZABLE
+                )
+                if manager.scene is not None:
+                    manager.scene.on_resize(current_w, current_h)
+
         if manager.scene is not None:
             manager.scene.handle_events()
             manager.scene.update()

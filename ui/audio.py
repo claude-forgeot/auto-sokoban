@@ -11,15 +11,9 @@ logger = logging.getLogger(__name__)
 
 _ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "audio"
 
-# MODIFICATION : Ajout des nouveaux effets sonores pour le jeu : bottle_clank et game_start
-# - "move" : son de mouvement simple du joueur
-# - "push" : son de poussee de caisse (ancien comportement)
-# - "bottle_clank" : son de bouteilles qui s'entrechoquent
-# - "game_start" : son de début de niveau
-# - "race" : son de début de course algorithmique
-# - "win" : son de victoire
-# - "button" : son des boutons UI
-_SFX_NAMES: tuple[str, ...] = ("move", "push", "bottle_clank", "game_start", "race", "win", "button")
+_SFX_NAMES: tuple[str, ...] = (
+    "move", "push", "bottle_clank", "game_start", "race", "win", "button", "game_over",
+)
 _MUSIC_NAME = "music_loop"
 _SUPPORTED_EXT: tuple[str, ...] = (".wav", ".ogg")
 

@@ -1,0 +1,491 @@
+"""Selecteur de niveaux avec onglets difficulte + grille + preview.
+
+Layout L2 (800x600 statique, resize couvert par tache #127) :
+- Onglets haut : 50 px (FACILE / MOYEN / DIFFICILE).
+- Grille gauche : ~55% largeur, vignettes 120x90 en 3 colonnes.
+- Preview droite : ~40% largeur, apercu grand format du niveau selectionne.
+- Actions bas : 60 px (RETOUR / LANCER).
+"""
+
+from __future__ import annotations
+
+import math
+from functools import lru_cache
+from pathlib import Path
+
+import pygame
+
+from game.db import get_best_for_level, get_completed_levels
+from game.level import LevelMeta, list_levels, load_level
+from ui.audio import AudioManager
+from ui.fonts import load_font
+from ui.input import Action, Button, poll_events
+from ui.layout import BASE_H, BASE_W, scale_font_size
+from ui.renderer import Renderer
+from ui.scenes import Mode
+from ui.scenes.base import Scene, SceneManager
+
+# Couleurs
+BG_COLOR = (25, 25, 35)
+PANEL_COLOR = (35, 35, 50)
+TITLE_COLOR = (255, 220, 80)
+TEXT_COLOR = (220, 220, 220)
+MUTED_COLOR = (120, 120, 120)
+TAB_ACTIVE_COLOR = (60, 60, 100)
+TAB_INACTIVE_COLOR = (40, 40, 50)
+HIGHLIGHT_BORDER = (100, 180, 255)
+COMPLETED_MARK_COLOR = (80, 220, 120)
+
+# Dimensions layout (800x600)
+TAB_BAR_H = 50
+ACTIONS_BAR_H = 60
+GRID_PANEL_W = 440  # ~55% de 800
+PREVIEW_PANEL_W = 360  # ~40% de 800 (le reste)
+GRID_COLS = 3
+THUMB_W = 120
+THUMB_H = 90
+CELL_PAD_X = 10
+CELL_PAD_Y = 14
+GRID_X_ORIGIN = 10
+GRID_Y_ORIGIN = TAB_BAR_H + 12
+
+DIFFICULTIES = ("facile", "moyen", "difficile")
+
+MODE_TITLES = {
+    Mode.PLAY: "CHOISIR UN NIVEAU",
+    Mode.SOLVE: "CHOISIR NIVEAU A RESOUDRE",
+    Mode.RACE: "CHOISIR NIVEAU POUR COURSE",
+}
+
+MODE_LAUNCH_LABELS = {
+    Mode.PLAY: "LANCER",
+    Mode.SOLVE: "RESOUDRE",
+    Mode.RACE: "LANCER COURSE",
+}
+
+
+class LevelSelectScene(Scene):
+    """Scene de selection de niveau avec onglets de difficulte."""
+
+    def __init__(
+        self,
+        manager: SceneManager,
+        mode: Mode = Mode.PLAY,
+        screen_w: int = 800,
+        screen_h: int = 600,
+        levels_dir: str | Path | None = None,
+        audio: AudioManager | None = None,
+    ) -> None:
+        super().__init__(manager)
+        self.mode = mode
+        self.screen_w = screen_w
+        self.screen_h = screen_h
+        _default_levels = Path(__file__).resolve().parent.parent.parent / "levels"
+        all_levels = list_levels(levels_dir if levels_dir is not None else _default_levels)
+
+        # Regroupement par difficulte.
+        self.levels_by_difficulty: dict[str, list[LevelMeta]] = {d: [] for d in DIFFICULTIES}
+        for lvl in all_levels:
+            if lvl.difficulty in self.levels_by_difficulty:
+                self.levels_by_difficulty[lvl.difficulty].append(lvl)
+
+        # Etat courant.
+        self._active_difficulty_idx = 0  # index dans DIFFICULTIES
+        self._selected_in_tab: dict[str, int] = {d: 0 for d in DIFFICULTIES}
+        self._scroll_offset = 0
+
+        self.audio = audio if audio is not None else AudioManager()
+
+        # Donnees BDD (chargees en on_enter).
+        self._completed: set[str] = set()
+        self._best: dict[str, tuple[int, float] | None] = {}
+
+        # Ressources.
+        self._font_title: pygame.font.Font | None = None
+        self._font_normal: pygame.font.Font | None = None
+        self._font_small: pygame.font.Font | None = None
+        self._tab_buttons: list[Button] = []
+        self._action_buttons: list[Button] = []
+        self._cell_rects: list[pygame.Rect] = []  # recalcule a chaque draw
+        self._thumb_renderer = Renderer(tile_size=8)
+        self._thumbnails: dict[str, pygame.Surface] = {}  # level.name -> surface
+        self._last_click_time = 0
+        self._last_click_idx = -1
+
+    # -------- lifecycle --------
+
+    def on_enter(self) -> None:
+        self._completed = get_completed_levels()
+        self._best = {
+            lvl.name: get_best_for_level(lvl.name)
+            for lvls in self.levels_by_difficulty.values()
+            for lvl in lvls
+        }
+
+        self._build_layout()
+        self._load_thumbnails()
+        self.audio.load()
+
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        self.screen_w = new_w
+        self.screen_h = new_h
+        self._build_layout()
+
+    def _build_layout(self) -> None:
+        self._font_title = load_font(scale_font_size(22, self.screen_h), bold=True)
+        self._font_normal = load_font(scale_font_size(16, self.screen_h))
+        self._font_small = load_font(scale_font_size(12, self.screen_h))
+        self._build_tab_buttons()
+        self._build_action_buttons()
+
+    def _sx(self) -> float:
+        return self.screen_w / BASE_W
+
+    def _sy(self) -> float:
+        return self.screen_h / BASE_H
+
+    def _scaled(self, v: int, vertical: bool = False) -> int:
+        """Scale une valeur px (horizontal par defaut)."""
+        return max(1, int(round(v * (self._sy() if vertical else self._sx()))))
+
+    def _load_thumbnails(self) -> None:
+        """Charge les vignettes de tous les niveaux (cache par path)."""
+        self._thumbnails = {}
+        for levels in self.levels_by_difficulty.values():
+            for lvl in levels:
+                surf = _render_thumbnail(lvl.path, THUMB_W, THUMB_H)
+                self._thumbnails[lvl.name] = surf
+
+    def _build_tab_buttons(self) -> None:
+        self._tab_buttons = []
+        tab_w = self.screen_w // len(DIFFICULTIES)
+        tab_h = self._scaled(TAB_BAR_H, vertical=True)
+        for i, diff in enumerate(DIFFICULTIES):
+            count = len(self.levels_by_difficulty[diff])
+            label = f"{diff.upper()} ({count})"
+            active = i == self._active_difficulty_idx
+            color = TAB_ACTIVE_COLOR if active else TAB_INACTIVE_COLOR
+            hover = (min(color[0] + 25, 255), min(color[1] + 25, 255), min(color[2] + 25, 255))
+            self._tab_buttons.append(
+                Button(
+                    pygame.Rect(i * tab_w, 0, tab_w, tab_h),
+                    label,
+                    Action.PAUSE,
+                    font=self._font_normal,
+                    color=color,
+                    hover_color=hover,
+                )
+            )
+
+    def _build_action_buttons(self) -> None:
+        btn_w = self._scaled(180)
+        btn_h = self._scaled(36, vertical=True)
+        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
+        y = self.screen_h - bar_h + (bar_h - btn_h) // 2
+        margin = self._scaled(20)
+        self._action_buttons = [
+            Button(
+                pygame.Rect(margin, y, btn_w, btn_h),
+                "RETOUR",
+                Action.BACK_MENU,
+                font=self._font_normal,
+                color=(100, 40, 40),
+                hover_color=(140, 60, 60),
+            ),
+            Button(
+                pygame.Rect(self.screen_w - margin - btn_w, y, btn_w, btn_h),
+                MODE_LAUNCH_LABELS[self.mode],
+                Action.PLAY,
+                font=self._font_normal,
+                color=(40, 100, 40),
+                hover_color=(60, 140, 60),
+            ),
+        ]
+
+    # -------- events --------
+
+    def handle_events(self) -> None:
+        result = poll_events(self._action_buttons, audio=self.audio)
+
+        # Gestion clics onglets : on inspecte les clics bruts pour router par index
+        # plutot que via l'enum Action (un onglet = un bouton avec meme Action).
+        for cx, cy in list(result.clicks):
+            # Onglets
+            handled = False
+            for i, btn in enumerate(self._tab_buttons):
+                if btn.rect.collidepoint(cx, cy):
+                    self._set_active_tab(i)
+                    self.audio.play_sfx("button")
+                    handled = True
+                    break
+            if handled:
+                continue
+
+            # Grille : clic sur une cellule selectionne / double-clic lance.
+            for i, rect in enumerate(self._cell_rects):
+                if rect.collidepoint(cx, cy):
+                    now = pygame.time.get_ticks()
+                    current_diff = DIFFICULTIES[self._active_difficulty_idx]
+                    if self._selected_in_tab[current_diff] == i and self._last_click_idx == i \
+                            and now - self._last_click_time < 400:
+                        self._start_level()
+                    else:
+                        self._selected_in_tab[current_diff] = i
+                    self._last_click_time = now
+                    self._last_click_idx = i
+                    break
+
+        for action in result:
+            if action in (Action.QUIT, Action.BACK_MENU):
+                self._back_to_menu()
+                return
+            if action == Action.PLAY:
+                self._start_level()
+            elif action == Action.MOVE_LEFT:
+                self._set_active_tab((self._active_difficulty_idx - 1) % len(DIFFICULTIES))
+            elif action == Action.MOVE_RIGHT:
+                self._set_active_tab((self._active_difficulty_idx + 1) % len(DIFFICULTIES))
+            elif action == Action.MOVE_UP:
+                self._move_selection(-GRID_COLS)
+            elif action == Action.MOVE_DOWN:
+                self._move_selection(GRID_COLS)
+
+    def _set_active_tab(self, idx: int) -> None:
+        self._active_difficulty_idx = idx
+        self._scroll_offset = 0
+        self._build_tab_buttons()
+
+    def _move_selection(self, delta: int) -> None:
+        diff = DIFFICULTIES[self._active_difficulty_idx]
+        levels = self.levels_by_difficulty[diff]
+        if not levels:
+            return
+        current = self._selected_in_tab[diff]
+        new = max(0, min(len(levels) - 1, current + delta))
+        self._selected_in_tab[diff] = new
+
+    def _selected_level(self) -> LevelMeta | None:
+        diff = DIFFICULTIES[self._active_difficulty_idx]
+        levels = self.levels_by_difficulty[diff]
+        if not levels:
+            return None
+        idx = self._selected_in_tab[diff]
+        return levels[min(idx, len(levels) - 1)]
+
+    def _start_level(self) -> None:
+        lvl = self._selected_level()
+        if lvl is None:
+            return
+        if self.mode == Mode.PLAY:
+            from ui.scenes.game import GameScene
+            self.manager.switch(
+                GameScene(
+                    self.manager, lvl, self.audio,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
+                )
+            )
+        elif self.mode == Mode.SOLVE:
+            from ui.scenes.solver import SolverScene
+            self.manager.switch(
+                SolverScene(
+                    self.manager, lvl,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
+                )
+            )
+        elif self.mode == Mode.RACE:
+            from ui.scenes.race import RaceScene
+            self.manager.switch(
+                RaceScene(
+                    self.manager, lvl,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
+                )
+            )
+
+    def _back_to_menu(self) -> None:
+        from ui.scenes.menu import MenuScene
+        self.manager.switch(
+            MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
+        )
+
+    def update(self) -> None:
+        pass
+
+    # -------- draw --------
+
+    def draw(self, screen: pygame.Surface) -> None:
+        assert self._font_title is not None
+        assert self._font_normal is not None
+        assert self._font_small is not None
+
+        screen.fill(BG_COLOR)
+
+        self._draw_tabs(screen)
+        self._draw_grid(screen)
+        self._draw_preview(screen)
+        self._draw_actions(screen)
+
+    def _draw_tabs(self, screen: pygame.Surface) -> None:
+        for btn in self._tab_buttons:
+            btn.draw(screen)
+        # Souligne l'onglet actif.
+        active = self._tab_buttons[self._active_difficulty_idx]
+        pygame.draw.rect(screen, HIGHLIGHT_BORDER, active.rect, width=2)
+
+    def _draw_grid(self, screen: pygame.Surface) -> None:
+        diff = DIFFICULTIES[self._active_difficulty_idx]
+        levels = self.levels_by_difficulty[diff]
+        selected_idx = self._selected_in_tab[diff]
+
+        tab_h = self._scaled(TAB_BAR_H, vertical=True)
+        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
+        panel_w = self._scaled(GRID_PANEL_W)
+        panel_rect = pygame.Rect(0, tab_h, panel_w, self.screen_h - tab_h - bar_h)
+        pygame.draw.rect(screen, PANEL_COLOR, panel_rect)
+
+        self._cell_rects = []
+        if not levels:
+            msg = self._font_normal.render(
+                f"Aucun niveau {diff}.", True, MUTED_COLOR
+            )
+            screen.blit(
+                msg,
+                (panel_rect.centerx - msg.get_width() // 2,
+                 panel_rect.centery - msg.get_height() // 2),
+            )
+            return
+
+        thumb_w = self._scaled(THUMB_W)
+        thumb_h = self._scaled(THUMB_H, vertical=True)
+        cell_w = thumb_w + self._scaled(CELL_PAD_X)
+        cell_h = thumb_h + self._scaled(CELL_PAD_Y + 16, vertical=True)
+        origin_x = self._scaled(GRID_X_ORIGIN)
+        origin_y = tab_h + self._scaled(12, vertical=True)
+        label_h = self._scaled(20, vertical=True)
+
+        for i, lvl in enumerate(levels):
+            col = i % GRID_COLS
+            row = i // GRID_COLS
+            cx = origin_x + col * cell_w
+            cy = origin_y + row * cell_h - self._scroll_offset
+            cell_rect = pygame.Rect(cx, cy, thumb_w, thumb_h + label_h)
+            self._cell_rects.append(cell_rect)
+
+            # Vignette.
+            thumb = self._thumbnails.get(lvl.name)
+            if thumb is not None:
+                # Scale vignette si la taille a change par rapport au cache.
+                if thumb.get_size() != (thumb_w, thumb_h):
+                    thumb = pygame.transform.scale(thumb, (thumb_w, thumb_h))
+                screen.blit(thumb, (cx, cy))
+            else:
+                pygame.draw.rect(screen, (60, 60, 80), (cx, cy, thumb_w, thumb_h))
+
+            if lvl.name in self._completed:
+                mark_surf = self._font_small.render("[OK]", True, COMPLETED_MARK_COLOR)
+                screen.blit(mark_surf, (cx + thumb_w - mark_surf.get_width() - 4, cy + 4))
+
+            if i == selected_idx:
+                # Pulsation de la bordure + halo bleu semi-transparent.
+                pulse = (math.sin(pygame.time.get_ticks() / 400.0) + 1) / 2  # [0, 1]
+                border_w = 2 + int(round(2 * pulse))
+                halo = pygame.Surface(cell_rect.size, pygame.SRCALPHA)
+                halo_alpha = int(40 + 40 * pulse)
+                halo.fill((*HIGHLIGHT_BORDER, halo_alpha))
+                screen.blit(halo, cell_rect.topleft)
+                pygame.draw.rect(screen, HIGHLIGHT_BORDER, cell_rect, width=border_w)
+
+            display_name = lvl.pack if lvl.number is None else f"{lvl.pack} {lvl.number:02d}"
+            name_surf = self._font_small.render(display_name, True, TEXT_COLOR)
+            screen.blit(
+                name_surf,
+                (cx + (thumb_w - name_surf.get_width()) // 2, cy + thumb_h + 2),
+            )
+
+    def _draw_preview(self, screen: pygame.Surface) -> None:
+        tab_h = self._scaled(TAB_BAR_H, vertical=True)
+        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
+        grid_panel_w = self._scaled(GRID_PANEL_W)
+        preview_panel_w = self.screen_w - grid_panel_w
+        panel_rect = pygame.Rect(
+            grid_panel_w, tab_h,
+            preview_panel_w, self.screen_h - tab_h - bar_h,
+        )
+        pygame.draw.rect(screen, PANEL_COLOR, panel_rect)
+        pygame.draw.line(
+            screen, (60, 60, 80),
+            (panel_rect.left, panel_rect.top),
+            (panel_rect.left, panel_rect.bottom),
+            width=1,
+        )
+
+        # Titre du mode (en-tete du panneau preview).
+        mode_title = self._font_small.render(
+            MODE_TITLES.get(self.mode, ""), True, MUTED_COLOR
+        )
+        screen.blit(mode_title, (panel_rect.left + 20, panel_rect.top + 8))
+
+        lvl = self._selected_level()
+        if lvl is None:
+            return
+
+        # Titre niveau.
+        display_name = lvl.pack if lvl.number is None else f"{lvl.pack} {lvl.number:02d}"
+        title = self._font_title.render(display_name, True, TITLE_COLOR)
+        screen.blit(title, (panel_rect.left + 20, panel_rect.top + 28))
+
+        # Apercu grand format.
+        preview_w = panel_rect.width - 40
+        preview_h = 200
+        preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
+        screen.blit(
+            preview_surf,
+            (
+                panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
+                panel_rect.top + 64,
+            ),
+        )
+
+        # Infos niveau.
+        info_y = panel_rect.top + 64 + preview_h + 20
+        info_lines = [
+            f"Difficulte : {lvl.difficulty}",
+            f"Caisses    : {lvl.box_count}",
+            f"Pack       : {lvl.pack}",
+        ]
+
+        completed = lvl.name in self._completed
+        if completed:
+            info_lines.append("[OK] Deja termine")
+            best = self._best.get(lvl.name)
+            if best is not None:
+                moves, time_s = best
+                mins, secs = divmod(int(time_s), 60)
+                info_lines.append(f"Meilleur : {moves} coups / {mins:02d}:{secs:02d}")
+        else:
+            info_lines.append("Jamais termine")
+
+        for line in info_lines:
+            color = COMPLETED_MARK_COLOR if line.startswith("[OK]") else TEXT_COLOR
+            surf = self._font_small.render(line, True, color)
+            screen.blit(surf, (panel_rect.left + 20, info_y))
+            info_y += 18
+
+    def _draw_actions(self, screen: pygame.Surface) -> None:
+        bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
+        bar_rect = pygame.Rect(0, self.screen_h - bar_h, self.screen_w, bar_h)
+        pygame.draw.rect(screen, PANEL_COLOR, bar_rect)
+        for btn in self._action_buttons:
+            btn.draw(screen)
+
+
+@lru_cache(maxsize=64)
+def _render_thumbnail(path: Path, width: int, height: int) -> pygame.Surface:
+    """Rend une vignette d'un niveau tenant dans (width, height).
+
+    Cache LRU par (path, width, height) pour eviter le recalcul.
+    """
+    board = load_level(path)
+    state = board.state
+    tile = max(4, min(width // max(state.width, 1), height // max(state.height, 1)))
+    renderer = Renderer(tile_size=tile)
+    return renderer.render(state)

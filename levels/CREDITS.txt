@@ -1,0 +1,37 @@
+CREDITS - Niveaux Sokoban
+==========================
+
+Niveaux maison (tuto_*.xsb)
+---------------------------
+Conçus par l'équipe Auto-Sokoban pour le projet scolaire
+La Plateforme, promotion 2026.
+Licence : usage libre dans le cadre du projet.
+
+
+Collections externes (microban_*, masSasquatch_*, sasquatchIII_*, sasquatchIV_*)
+--------------------------------------------------------------------------------
+Niveaux créés par David W. Skinner.
+  Contact : sasquatch@bentonrea.com
+  Site    : http://users.bentonrea.com/~sasquatch/
+
+Collections utilisées dans ce projet :
+  - Microban I       (microban_001 a microban_039, 25 niveaux)
+  - Mas Sasquatch    (masSasquatch_001 a masSasquatch_005, 5 niveaux)
+  - Sasquatch III    (sasquatchIII_001 a sasquatchIII_005, 5 niveaux)
+  - Sasquatch IV     (sasquatchIV_001 a sasquatchIV_010, 10 niveaux)
+
+Redistribution autorisee avec mention de l'auteur.
+
+
+Source de conversion
+--------------------
+Niveaux extraits depuis le projet Coq "Coqoban" :
+  https://github.com/coq-community/coqoban
+  Fichier : theories/Coqoban_levels.v
+  Licence du projet Coq : GNU LGPL v2.1 ou ulterieure
+
+Le format Coq a ete converti au format XSB standard via un script
+d'extraction (caracteres : # mur, espace sol, $ caisse, . cible,
+@ joueur, * caisse-sur-cible, + joueur-sur-cible).
+
+Les niveaux en eux-memes restent l'oeuvre de David W. Skinner.
