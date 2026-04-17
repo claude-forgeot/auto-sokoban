@@ -22,8 +22,8 @@ class DummySolver(Solver):
             level_name=level_name,
         )
 
-    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time):
-        return False, (), 0, {}
+    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time, timeout_ms=None):
+        return False, (), 0, {}, "exhausted"
 
 
 class TestSolverStep:
