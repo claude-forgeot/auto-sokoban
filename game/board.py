@@ -36,14 +36,20 @@ class BoardState:
         return self.boxes == self.targets
 
     def at(self, pos: Position) -> str:
-        """Retourne 'wall' | 'box' | 'player' | 'target' | 'empty'."""
+        """Retourne l'etat de la case.
+
+        Valeurs : 'wall' | 'box' | 'box_on_target' | 'player' |
+        'player_on_target' | 'target' | 'empty'. Les variantes '_on_target'
+        permettent au rendu de differencier une caisse/joueur pose sur cible.
+        """
         if pos in self.walls:
             return "wall"
+        on_target = pos in self.targets
         if pos in self.boxes:
-            return "box"
+            return "box_on_target" if on_target else "box"
         if pos == self.player:
-            return "player"
-        if pos in self.targets:
+            return "player_on_target" if on_target else "player"
+        if on_target:
             return "target"
         return "empty"
 
