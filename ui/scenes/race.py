@@ -276,8 +276,14 @@ class RaceScene(Scene):
             results = [lane.result for lane in self._lanes if lane.result is not None]
             if results:
                 comp_surf = self._metrics.render_comparison(results)
-                comp_y = self.screen_h - 50 - comp_surf.get_height()
-                screen.blit(comp_surf, (self.screen_w // 2 - comp_surf.get_width() // 2, comp_y))
+                cw, ch = comp_surf.get_size()
+                comp_y = self.screen_h - 50 - ch
+                # Masque toute la bande horizontale sous les lanes pour eviter
+                # le chevauchement visuel avec les stats/replay des lanes.
+                band = pygame.Rect(0, comp_y - 8, self.screen_w, ch + 16)
+                pygame.draw.rect(screen, BG_COLOR, band)
+                pygame.draw.rect(screen, SEPARATOR_COLOR, band, width=1)
+                screen.blit(comp_surf, (self.screen_w // 2 - cw // 2, comp_y))
 
         # Boutons
         for btn in self._buttons:
