@@ -18,3 +18,8 @@ env/
 *.log
 
 .mcp.json
+
+# Fichiers colles/scrapbook (GNOME/KDE screenshot -> "Image collée.png", etc.)
+Image collée*.png
+Pasted*.png
+Screenshot*.png
