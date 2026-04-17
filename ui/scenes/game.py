@@ -300,6 +300,12 @@ class GameScene(Scene):
 
         # Message de victoire et saisie du nom
         if self.won:
+            overlay_h = 70 if self._entering_name else 30
+            overlay_top = self.screen_h - 90
+            overlay = pygame.Surface((self.screen_w, overlay_h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            screen.blit(overlay, (0, overlay_top))
+
             win_text = f"NIVEAU TERMINÉ ! {self.move_count} coups en {mins:02d}:{secs:02d}"
             win_surf = self._font.render(win_text, True, WIN_COLOR)
             screen.blit(
