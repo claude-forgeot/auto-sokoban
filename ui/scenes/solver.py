@@ -186,6 +186,9 @@ class SolverScene(Scene):
             self._all_done = True
             return
 
+        if self._solver_thread is not None and self._solver_thread.is_alive():
+            return
+
         solver = self._solvers[self._current_solver_idx]
         initial = load_level(self.level_meta.path).state
 
@@ -246,6 +249,8 @@ class SolverScene(Scene):
                     self._replay_done = False
             elif action == Action.SOLVE:
                 # Passer au solveur suivant
+                if solver_running:
+                    continue
                 if self._replay_done or not self._replaying:
                     self._current_solver_idx += 1
                     self._run_current_solver()
