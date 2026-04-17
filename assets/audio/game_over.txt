@@ -32,7 +32,7 @@ Direction artistique suggeree
 - Glissando descendant, tonalite mineure, ou bruit blanc bref.
 - Eviter les voix, eviter les sons trop longs ou trop aigus.
 
-Sources CC0 possibles (voir ~/.claude/projects/<projet>/memory/audio_assets_sources.md)
+Sources CC0 possibles
 - Bfxr (generateur chiptune)    : https://www.bfxr.net/
 - The Motion Monkey retro pack  : https://www.themotionmonkey.co.uk/free-resources/retro-arcade-sounds/
 - OpenGameArt CC0 SFX           : https://opengameart.org/content/cc0-sound-effects
