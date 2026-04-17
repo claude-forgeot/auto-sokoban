@@ -83,7 +83,10 @@ class RaceScene(Scene):
         ]
         self._finish_counter = 0
         self._all_done = False
-        self._metrics = MetricsPanel(width=self._col_w - 10)
+        self._metrics = MetricsPanel(
+            width=self._col_w - 10,
+            font_size=scale_font_size(16, self.screen_h),
+        )
 
         self._font: pygame.font.Font | None = None
         self._font_small: pygame.font.Font | None = None
@@ -98,9 +101,11 @@ class RaceScene(Scene):
 
     def _build_buttons(self) -> None:
         assert self._font is not None
-        btn_w, btn_h = 160, 32
+        sy = self.screen_h / 600
+        btn_w = max(160, int(160 * self.screen_w / 800))
+        btn_h = max(32, int(32 * sy))
         x = self.screen_w // 2 - btn_w // 2
-        y = self.screen_h - 40
+        y = self.screen_h - max(40, int(40 * sy))
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
                     Action.BACK_MENU, font=self._font,
@@ -125,7 +130,10 @@ class RaceScene(Scene):
             Renderer(tile_size=self._tile_size, variant=self._variant)
             for _ in range(COL_COUNT)
         ]
-        self._metrics = MetricsPanel(width=self._col_w - 10)
+        self._metrics = MetricsPanel(
+            width=self._col_w - 10,
+            font_size=scale_font_size(16, self.screen_h),
+        )
         if self._font is not None:
             self._build_buttons()
 
@@ -266,10 +274,11 @@ class RaceScene(Scene):
             else:
                 lines = [("Démarrage...", STATUS_COLOR)]
 
+            line_h = self._font_small.get_linesize()
             for text, color in lines:
                 rendered = self._font_small.render(text, True, color)
                 screen.blit(rendered, (x + 8, y))
-                y += 16
+                y += line_h
 
         # Tableau comparatif final
         if self._all_done:

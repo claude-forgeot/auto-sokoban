@@ -17,7 +17,7 @@ from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
 from ui.fonts import load_font
-from ui.layout import scale_font_size
+from ui.layout import BASE_H, BASE_W, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
@@ -68,7 +68,10 @@ class SolverScene(Scene):
             tile_size=self._compute_tile_size(screen_w, screen_h),
             variant=self._variant,
         )
-        self.metrics = MetricsPanel(width=350)
+        self.metrics = MetricsPanel(
+            width=max(350, int(350 * screen_w / BASE_W)),
+            font_size=scale_font_size(16, screen_h),
+        )
 
         self._solvers: list[Solver] = [AStar(), BFS(), DFS(max_depth=200)]
         self._results: list[SolverResult] = []
@@ -122,10 +125,13 @@ class SolverScene(Scene):
 
     def _build_layout(self) -> None:
         assert self._font is not None
-        btn_w, btn_h = 140, 35
-        x = self.screen_w - btn_w - 20
-        y_base = self.screen_h - 200
-        spacing = 45
+        sx = self.screen_w / BASE_W
+        sy = self.screen_h / BASE_H
+        btn_w = max(140, int(140 * sx))
+        btn_h = max(35, int(35 * sy))
+        spacing = max(45, int(45 * sy))
+        x = self.screen_w - btn_w - int(20 * sx)
+        y_base = self.screen_h - max(200, int(200 * sy))
         self._buttons = [
             Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
                     color=(40, 100, 40), hover_color=(60, 140, 60)),
@@ -133,7 +139,7 @@ class SolverScene(Scene):
                    font=self._font, color=(40, 40, 100), hover_color=(60, 60, 140)),
             Button(pygame.Rect(x, y_base + spacing * 2, btn_w, btn_h), "HEATMAP [H]", Action.HEATMAP,
                    font=self._font, color=(80, 60, 20), hover_color=(120, 90, 30)),
-            Button(pygame.Rect(x, y_base + spacing * 3 + 10, btn_w, btn_h), "RETOUR MENU",
+            Button(pygame.Rect(x, y_base + spacing * 3 + int(10 * sy), btn_w, btn_h), "RETOUR MENU",
                    Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
         self._stop_button = Button(

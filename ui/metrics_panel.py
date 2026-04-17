@@ -240,7 +240,13 @@ class MetricsPanel:
         y += line_h
 
         max_time = max((r.time_ms for r in results), default=1.0) or 1.0
-        bar_max_w = self.width - 80
+        # Reserve la largeur du plus grand label temps pour eviter qu'il sorte
+        # de la surface (tronque visuellement).
+        max_label_w = max(
+            (font.render(f"{r.time_ms:.0f}ms", True, COLOR_TEXT).get_width() for r in results),
+            default=0,
+        )
+        bar_max_w = max(20, self.width - 80 - max_label_w - 10)
 
         for r in results:
             ratio = r.time_ms / max_time

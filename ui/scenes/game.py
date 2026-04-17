@@ -87,17 +87,21 @@ class GameScene(Scene):
 
     def _build_layout(self) -> None:
         assert self._font is not None
-        btn_w, btn_h = 120, 35
-        x = self.screen_w - btn_w - 20
-        y = 80
+        sx = self.screen_w / 800
+        sy = self.screen_h / 600
+        btn_w = max(140, int(140 * sx))
+        btn_h = max(35, int(35 * sy))
+        spacing = max(45, int(45 * sy))
+        x = self.screen_w - btn_w - int(20 * sx)
+        y = max(80, int(80 * sy))
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
-            Button(pygame.Rect(x, y + 45, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
-            Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
+            Button(pygame.Rect(x, y + spacing, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
+            Button(pygame.Rect(x, y + spacing * 2, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
                     color=(40, 40, 100), hover_color=(60, 60, 140)),
-            Button(pygame.Rect(x, y + 135, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font,
+            Button(pygame.Rect(x, y + spacing * 3, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font,
                     color=(120, 70, 30), hover_color=(160, 100, 50)),
-            Button(pygame.Rect(x, y + 180, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
+            Button(pygame.Rect(x, y + spacing * 4, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
                     color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
 
