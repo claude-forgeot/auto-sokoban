@@ -174,6 +174,20 @@ class Board:
             raise ValueError(
                 f"Niveau XSB invalide : {len(boxes)} caisses pour {len(targets)} cibles."
             )
+        if player in walls:
+            raise ValueError(f"Niveau XSB invalide : joueur sur un mur en {player}.")
+        overlap_boxes = boxes & walls
+        if overlap_boxes:
+            raise ValueError(
+                f"Niveau XSB invalide : {len(overlap_boxes)} caisse(s) sur un mur : {sorted(overlap_boxes)}"
+            )
+        overlap_targets = targets & walls
+        if overlap_targets:
+            raise ValueError(
+                f"Niveau XSB invalide : {len(overlap_targets)} cible(s) sur un mur : {sorted(overlap_targets)}"
+            )
+        if player in boxes:
+            raise ValueError(f"Niveau XSB invalide : joueur sur une caisse en {player}.")
 
         state = BoardState(
             walls=frozenset(walls),
