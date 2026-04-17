@@ -17,6 +17,7 @@ from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
 from ui.fonts import load_font
+from ui.layout import scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
@@ -162,7 +163,7 @@ class SolverScene(Scene):
         Cette méthode est appelée lorsque l'utilisateur accède au mode de résolution automatique.
         C'est le bon moment pour jouer le son de début et lancer l'algorithme de résolution.
         """
-        self._font = load_font(18)
+        self._font = load_font(scale_font_size(18, self.screen_h))
         self._build_layout()
 
         if self.audio is not None:

@@ -15,6 +15,7 @@ from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
 from ui.fonts import load_font
+from ui.layout import scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
@@ -107,8 +108,8 @@ class RaceScene(Scene):
         ]
 
     def on_enter(self) -> None:
-        self._font = load_font(16)
-        self._font_small = load_font(12)
+        self._font = load_font(scale_font_size(16, self.screen_h))
+        self._font_small = load_font(scale_font_size(12, self.screen_h))
         self._build_buttons()
 
         if self.audio is not None:

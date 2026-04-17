@@ -39,8 +39,9 @@ class RankingScene(Scene):
     def on_enter(self) -> None:
         pygame.font.init()
         from ui.fonts import load_font
-        self._font_title = load_font(28, bold=True)
-        self._font = load_font(16)
+        from ui.layout import scale_font_size
+        self._font_title = load_font(scale_font_size(28, self.screen_h), bold=True)
+        self._font = load_font(scale_font_size(16, self.screen_h))
 
         if self.level_name:
             self._entries = get_ranking(self.level_name, limit=10)

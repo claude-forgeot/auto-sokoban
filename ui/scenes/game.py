@@ -12,6 +12,7 @@ from game.level import LevelMeta, load_level
 from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
 from ui.fonts import load_font
+from ui.layout import scale_font_size
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
@@ -107,7 +108,7 @@ class GameScene(Scene):
         C'est le bon moment pour jouer le son de début de niveau.
         """
         pygame.font.init()
-        self._font = load_font(18)
+        self._font = load_font(scale_font_size(18, self.screen_h))
         self._build_layout()
         self.start_time = time.time()
         
