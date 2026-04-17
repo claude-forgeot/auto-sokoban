@@ -124,14 +124,18 @@ class MenuScene(Scene):
         self.manager.switch(scene)
 
     def _start_solver(self) -> None:
-        """Transition vers la scene de resolution automatique."""
+        """Transition vers la scene de resolution automatique.
+        
+        L'import de SolverScene est fait ici pour eviter une importation circulaire.
+        """
         level = self.get_selected_level()
         if level is None:
             return
+        # MODIFICATION : Import local pour eviter une boucle circulaire
         from ui.scenes.solver import SolverScene
 
         scene = SolverScene(
-            self.manager, level,
+            self.manager, level, self.audio,
             screen_w=self.screen_w, screen_h=self.screen_h,
         )
         self.manager.switch(scene)

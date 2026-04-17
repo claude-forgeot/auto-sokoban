@@ -85,8 +85,12 @@ class GameScene(Scene):
         ]
         self.start_time = time.time()
         
-        # MODIFICATION : Jouer le son de début de niveau lors de l'entrée en scene
-        self.audio.play_game_start()
+        # MODIFICATION : Jouer le son de début de niveau une seule fois
+        # Le flag _game_start_sound_played empêche le son de se rejouer
+        # si on quitte et revient dans la même instance de scene
+        if not self._game_start_sound_played:
+            self.audio.play_game_start()
+            self._game_start_sound_played = True
 
     def handle_events(self) -> None:
         """Traite les entrées utilisateur (clavier, souris, boutons)."""
@@ -99,6 +103,7 @@ class GameScene(Scene):
             if action == Action.QUIT:
                 self.manager.quit()
             elif action == Action.BACK_MENU:
+                self.audio.return_to_menu()  # Assurer la transition audio vers le menu
                 from ui.scenes.menu import MenuScene
                 menu = MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
                 self.manager.switch(menu)
@@ -131,6 +136,7 @@ class GameScene(Scene):
                 self.move_count = 0
                 self.start_time = time.time()
                 self.won = False
+                self._game_start_sound_played = False  # Permet de rejouer le son de début après reset
                 self.audio.play_game_start()
             elif action == Action.SOLVE and not self.won:
                 from ui.scenes.solver import SolverScene

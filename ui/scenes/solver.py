@@ -139,6 +139,8 @@ class SolverScene(Scene):
                 self.manager.quit()
             elif action == Action.BACK_MENU:
                 self._cancel_event.set()
+                if self.audio is not None:
+                    self.audio.return_to_menu()  # Assurer la transition audio vers le menu
                 from ui.scenes.menu import MenuScene
                 menu = MenuScene(
                     self.manager,
