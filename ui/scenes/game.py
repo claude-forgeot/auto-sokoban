@@ -88,8 +88,8 @@ class GameScene(Scene):
 
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
-            Button(pygame.Rect(x, y + 45, btn_w, btn_h), "REINIT.", Action.RESET, font=self._font),
-            Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RESOUDRE", Action.SOLVE, font=self._font,
+            Button(pygame.Rect(x, y + 45, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
+            Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
                     color=(40, 40, 100), hover_color=(60, 60, 140)),
             Button(pygame.Rect(x, y + 145, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
                     color=(100, 40, 40), hover_color=(140, 60, 60)),
