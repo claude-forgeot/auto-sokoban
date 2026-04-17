@@ -109,7 +109,12 @@ class Solver(ABC):
         steps: list[SolverStep] = []
         state = initial
         for d in directions:
-            state = Solver.apply_move(state, d)  # type: ignore[arg-type]
+            next_state = Solver.apply_move(state, d)
+            if next_state is None:
+                raise ValueError(
+                    f"build_steps: direction invalide {d} a l'etat {state}"
+                )
+            state = next_state
             steps.append(
                 SolverStep(
                     direction=d,
