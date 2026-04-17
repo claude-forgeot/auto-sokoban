@@ -89,6 +89,81 @@ class TestSolveAsync:
         assert messages[0].finished
         assert not messages[0].result.found
         assert messages[0].nodes_explored == 0
+        assert messages[0].result.stop_reason == "user_cancelled"
+
+    def test_stop_reason_exhausted(self):
+        """Dummy explore 120 noeuds puis termine sans solution."""
+        solver = DummyAsyncSolver()
+        state = self._make_state()
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        solver.solve_async(state, "test", q, cancel)
+
+        final = list(q.queue)[-1]
+        assert final.result.stop_reason == "exhausted"
+
+
+class SlowSolver(Solver):
+    """Solveur factice qui boucle avec sleep pour tester le timeout."""
+
+    name = "Slow"
+
+    def solve(self, initial, level_name=""):
+        return SolverResult(
+            found=False, steps=(), total_nodes_explored=0,
+            time_ms=0.0, solution_length=0,
+            algo_name=self.name, level_name=level_name,
+        )
+
+    def _search_async(self, initial, level_name, progress_queue, cancel_event, start_time, timeout_ms=None):
+        import time as _time
+        nodes = 0
+        for _ in range(10_000):
+            if cancel_event.is_set():
+                return False, (), nodes, {}, "user_cancelled"
+            if timeout_ms is not None and (_time.perf_counter() - start_time) * 1000 > timeout_ms:
+                return False, (), nodes, {}, "timeout"
+            nodes += 1
+            _time.sleep(0.001)
+        return False, (), nodes, {}, "exhausted"
+
+
+class TestTimeoutReason:
+    """Tests dedies a la raison 'timeout'."""
+
+    def _empty_state(self):
+        return BoardState(
+            walls=frozenset({(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2)}),
+            targets=frozenset(),
+            boxes=frozenset(),
+            player=(1, 1),
+            width=3, height=3,
+        )
+
+    def test_slow_solver_timeout_fires(self):
+        """Un solveur qui boucle 10s avec timeout=50ms doit stopper en timeout."""
+        state = self._empty_state()
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        SlowSolver().solve_async(state, "slow", q, cancel, timeout_ms=50)
+
+        final = list(q.queue)[-1]
+        assert final.finished
+        assert not final.result.found
+        assert final.result.stop_reason == "timeout"
+
+    def test_timeout_none_no_limit(self):
+        """timeout_ms=None ne doit jamais timeouter sur un petit solveur."""
+        state = self._empty_state()
+        q = queue.Queue()
+        cancel = threading.Event()
+
+        DummyAsyncSolver().solve_async(state, "test", q, cancel, timeout_ms=None)
+
+        final = list(q.queue)[-1]
+        assert final.result.stop_reason == "exhausted"
 
 
 class TestBFSAsync:

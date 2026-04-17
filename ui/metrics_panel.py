@@ -155,10 +155,20 @@ class MetricsPanel:
             return surface
 
         r = self._result
+        reason_labels = {
+            "found": ("Solution trouvée !", COLOR_BEST),
+            "exhausted": ("Espace exploré sans solution", COLOR_WORST),
+            "timeout": (f"Timeout ({r.time_ms / 1000:.0f}s)", COLOR_TIMEOUT_WARN),
+            "user_cancelled": ("Arrêté par l'utilisateur", COLOR_TIMEOUT_WARN),
+        }
+        status_label, status_color = reason_labels.get(
+            r.stop_reason, ("Résolu" if r.found else "Échec",
+                             COLOR_BEST if r.found else COLOR_WORST)
+        )
         lines = [
             (f"Algorithme : {r.algo_name}", COLOR_HEADER),
             (f"Niveau     : {r.level_name}", COLOR_TEXT),
-            (f"Résultat   : {'Résolu' if r.found else 'Échec'}", COLOR_BEST if r.found else COLOR_WORST),
+            (f"Résultat   : {status_label}", status_color),
             (f"Coups      : {r.solution_length}", COLOR_TEXT),
             (f"Noeuds     : {r.total_nodes_explored}", COLOR_TEXT),
             (f"Temps      : {r.time_ms:.1f} ms", COLOR_TEXT),
