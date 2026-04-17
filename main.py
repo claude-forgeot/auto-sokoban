@@ -1,5 +1,11 @@
 """Point d'entree du jeu Auto-Sokoban."""
 
+import os
+
+# Centrer la fenetre au lancement plutot que laisser le WM (GNOME/tiling)
+# la placer/maximiser automatiquement. Doit etre defini avant pygame.init().
+os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
+
 import pygame
 
 from ui.layout import BASE_H, BASE_W, clamp_window_size
