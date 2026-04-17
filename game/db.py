@@ -77,12 +77,18 @@ def get_completed_levels() -> set[str]:
 
 
 def get_best_for_level(level: str) -> tuple[int, float] | None:
-    """Retourne (moves_min, time_s_min) pour le niveau, ou None si jamais termine."""
+    """Retourne (moves, time_s) du meilleur score coherent pour le niveau.
+
+    Utilise ORDER BY pour garantir que moves et time_s proviennent de la
+    meme ligne (meme joueur, meme partie). MIN(moves) + MIN(time_s)
+    independants produirait un record composite melangeant 2 joueurs.
+    """
     with closing(_connect()) as conn:
         row = conn.execute(
-            "SELECT MIN(moves), MIN(time_s) FROM scores WHERE level = ?",
+            "SELECT moves, time_s FROM scores WHERE level = ? "
+            "ORDER BY moves ASC, time_s ASC LIMIT 1",
             (level,),
         ).fetchone()
-    if row is None or row[0] is None:
+    if row is None:
         return None
     return (int(row[0]), float(row[1]))
