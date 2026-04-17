@@ -66,7 +66,9 @@ class GameScene(Scene):
         self._player_name = ""
         self._score_saved = False
         self._win_elapsed = 0.0
-        
+        self._confirm_solve = False
+        self._facing_left = False
+
         # MODIFICATION : Flag pour vérifier si le son de début a été joué
         # Cela permet de lancer le son game_start une seule fois au démarrage
         self._game_start_sound_played = False
