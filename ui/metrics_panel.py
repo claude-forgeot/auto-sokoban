@@ -15,8 +15,10 @@ COLOR_BEST = (100, 255, 120)
 COLOR_WORST = (255, 100, 100)
 COLOR_SEPARATOR = (60, 60, 80)
 COLOR_FLASH = (255, 220, 50)
+COLOR_TIMEOUT_WARN = (255, 90, 90)
 
 FLASH_DURATION_MS = 400
+TIMEOUT_WARN_THRESHOLD_MS = 10_000
 
 
 class MetricsPanel:
@@ -30,6 +32,11 @@ class MetricsPanel:
         self._progress: SolverProgress | None = None
         self._prev_values: dict[str, int] = {}
         self._flash_times: dict[str, int] = {}
+        self._timeout_ms: int | None = None
+
+    def set_timeout(self, timeout_ms: int | None) -> None:
+        """Configure le timeout affiché en countdown dans render_progress."""
+        self._timeout_ms = timeout_ms
 
     def _get_font(self) -> pygame.font.Font:
         if self._font is None:
@@ -110,6 +117,27 @@ class MetricsPanel:
         elapsed_text = f"Temps      : {p.elapsed_ms:.0f} ms"
         rendered = font.render(elapsed_text, True, COLOR_TEXT)
         surface.blit(rendered, (10, y))
+        y += line_h
+
+        # Noeuds / seconde
+        if p.elapsed_ms > 0:
+            rate = p.nodes_explored / (p.elapsed_ms / 1000)
+            rate_text = f"Noeuds/s   : {rate:,.0f}".replace(",", " ")
+        else:
+            rate_text = "Noeuds/s   : -"
+        rendered = font.render(rate_text, True, COLOR_TEXT)
+        surface.blit(rendered, (10, y))
+        y += line_h
+
+        # Countdown timeout
+        if self._timeout_ms is not None:
+            remaining_ms = max(0.0, self._timeout_ms - p.elapsed_ms)
+            remaining_color = (
+                COLOR_TIMEOUT_WARN if remaining_ms <= TIMEOUT_WARN_THRESHOLD_MS else COLOR_TEXT
+            )
+            remaining_text = f"Restant    : {remaining_ms / 1000:.1f} s"
+            rendered = font.render(remaining_text, True, remaining_color)
+            surface.blit(rendered, (10, y))
 
         return surface
 

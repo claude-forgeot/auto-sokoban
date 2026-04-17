@@ -196,6 +196,7 @@ class SolverScene(Scene):
         self._stopped = False
 
         timeout_ms = TIMEOUT_OPTIONS_MS[self._timeout_idx]
+        self.metrics.set_timeout(timeout_ms)
         self._solver_thread = threading.Thread(
             target=solver.solve_async,
             args=(initial, self.level_meta.name, self._progress_queue, self._cancel_event, timeout_ms),
