@@ -11,6 +11,8 @@ __all__ = ["MetricsPanel", "Renderer"]
 
 def demo() -> None:
     """Affiche un Board de demonstration dans une fenetre Pygame."""
+    from pathlib import Path
+
     import pygame
 
     from game.board import Board
@@ -20,7 +22,8 @@ def demo() -> None:
     board = Board.from_xsb(
         "######\n#    #\n# @$ #\n#  . #\n#    #\n######"
     )
-    renderer = Renderer(tile_size=64, assets_dir="assets")
+    assets_dir = Path(__file__).resolve().parent / "assets"
+    renderer = Renderer(tile_size=64, assets_dir=str(assets_dir))
     surface = renderer.render(board.state)
 
     screen = pygame.display.set_mode(surface.get_size())
