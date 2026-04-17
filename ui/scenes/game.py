@@ -292,8 +292,12 @@ class GameScene(Scene):
 
         # Confirmation résolution automatique
         if self._confirm_solve:
-            confirm_text = "Abandonner la partie ? [O]ui / [N]on"
+            confirm_text = "Abandonner la partie ? [O/Y]ui  [N]on"
             confirm_surf = self._font.render(confirm_text, True, INPUT_COLOR)
+            overlay_h = confirm_surf.get_height() + 12
+            overlay = pygame.Surface((self.screen_w, overlay_h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            screen.blit(overlay, (0, self.screen_h - 46))
             screen.blit(
                 confirm_surf,
                 (self.screen_w // 2 - confirm_surf.get_width() // 2, self.screen_h - 40),
