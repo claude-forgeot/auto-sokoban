@@ -58,15 +58,12 @@ class SolverScene(Scene):
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
-        panel_w = 370
-        header_h = 40
-        available_w = screen_w - panel_w - 20
-        available_h = screen_h - header_h - 60
-        cols = self._initial_state.width
-        rows = self._initial_state.height
-        adaptive_tile = min(tile_size, available_w // max(cols, 1), available_h // max(rows, 1))
-        variant = hash(level_meta.name) % 3
-        self.renderer = Renderer(tile_size=max(16, adaptive_tile), variant=variant)
+        self._base_tile_size = tile_size
+        self._variant = hash(level_meta.name) % 3
+        self.renderer = Renderer(
+            tile_size=self._compute_tile_size(screen_w, screen_h),
+            variant=self._variant,
+        )
         self.metrics = MetricsPanel(width=350)
 
         self._solvers: list[Solver] = [AStar(), BFS(), DFS(max_depth=200)]
@@ -101,18 +98,26 @@ class SolverScene(Scene):
         # Timeline progression (algo_name -> list[(elapsed_ms, nodes)])
         self._timelines: dict[str, list[tuple[float, int]]] = {}
 
-    def on_enter(self) -> None:
-        """Initialise la scene de résolution automatique.
-        
-        Cette méthode est appelée lorsque l'utilisateur accède au mode de résolution automatique. C'est le bon moment pour jouer le son de début et lancer l'algorithme de résolution.
-        """
-        self._font = load_font(18)
+    def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
+        panel_w = 370
+        header_h = 40
+        available_w = screen_w - panel_w - 20
+        available_h = screen_h - header_h - 60
+        cols = self._initial_state.width
+        rows = self._initial_state.height
+        adaptive_tile = min(
+            self._base_tile_size,
+            available_w // max(cols, 1),
+            available_h // max(rows, 1),
+        )
+        return max(16, adaptive_tile)
 
+    def _build_layout(self) -> None:
+        assert self._font is not None
         btn_w, btn_h = 140, 35
         x = self.screen_w - btn_w - 20
         y_base = self.screen_h - 200
         spacing = 45
-
         self._buttons = [
             Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
                     color=(40, 100, 40), hover_color=(60, 140, 60)),
@@ -123,12 +128,30 @@ class SolverScene(Scene):
             Button(pygame.Rect(x, y_base + spacing * 3 + 10, btn_w, btn_h), "RETOUR MENU",
                    Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
-        
-        # MODIFICATION : Jouer le son de début lorsqu'on entre en mode résolution
+
+    def on_enter(self) -> None:
+        """Initialise la scene de résolution automatique.
+
+        Cette méthode est appelée lorsque l'utilisateur accède au mode de résolution automatique.
+        C'est le bon moment pour jouer le son de début et lancer l'algorithme de résolution.
+        """
+        self._font = load_font(18)
+        self._build_layout()
+
         if self.audio is not None:
             self.audio.play_game_start()
 
         self._run_current_solver()
+
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        self.screen_w = new_w
+        self.screen_h = new_h
+        self.renderer = Renderer(
+            tile_size=self._compute_tile_size(new_w, new_h),
+            variant=self._variant,
+        )
+        if self._font is not None:
+            self._build_layout()
 
     def _run_current_solver(self) -> None:
         """Lance le solveur courant dans un thread separe."""

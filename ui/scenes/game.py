@@ -47,15 +47,12 @@ class GameScene(Scene):
         self.screen_h = screen_h
 
         self.board = load_level(level_meta.path)
-        panel_w = 160
-        hud_h = 50
-        available_w = screen_w - panel_w - 40
-        available_h = screen_h - hud_h - 20
-        cols = self.board.state.width
-        rows = self.board.state.height
-        adaptive_tile = min(tile_size, available_w // max(cols, 1), available_h // max(rows, 1))
-        variant = hash(level_meta.name) % 3
-        self.renderer = Renderer(tile_size=max(16, adaptive_tile), variant=variant)
+        self._base_tile_size = tile_size
+        self._variant = hash(level_meta.name) % 3
+        self.renderer = Renderer(
+            tile_size=self._compute_tile_size(screen_w, screen_h),
+            variant=self._variant,
+        )
         self.move_count = 0
         self.start_time = 0.0
         self.won = False
@@ -73,19 +70,25 @@ class GameScene(Scene):
         # Cela permet de lancer le son game_start une seule fois au démarrage
         self._game_start_sound_played = False
 
-    def on_enter(self) -> None:
-        """Initialise la scene lorsqu'elle devient active.
-        
-        Cette méthode est appelée au moment où le joueur accède à un nouveau niveau.
-        C'est le bon moment pour jouer le son de début de niveau.
-        """
-        pygame.font.init()
-        self._font = load_font(18)
+    def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
+        panel_w = 160
+        hud_h = 50
+        available_w = screen_w - panel_w - 40
+        available_h = screen_h - hud_h - 20
+        cols = self.board.state.width
+        rows = self.board.state.height
+        adaptive_tile = min(
+            self._base_tile_size,
+            available_w // max(cols, 1),
+            available_h // max(rows, 1),
+        )
+        return max(16, adaptive_tile)
 
+    def _build_layout(self) -> None:
+        assert self._font is not None
         btn_w, btn_h = 120, 35
         x = self.screen_w - btn_w - 20
         y = 80
-
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
             Button(pygame.Rect(x, y + 45, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
@@ -94,6 +97,16 @@ class GameScene(Scene):
             Button(pygame.Rect(x, y + 145, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
                     color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
+
+    def on_enter(self) -> None:
+        """Initialise la scene lorsqu'elle devient active.
+
+        Cette méthode est appelée au moment où le joueur accède à un nouveau niveau.
+        C'est le bon moment pour jouer le son de début de niveau.
+        """
+        pygame.font.init()
+        self._font = load_font(18)
+        self._build_layout()
         self.start_time = time.time()
         
         # MODIFICATION : Jouer le son de début de niveau une seule fois
@@ -102,6 +115,15 @@ class GameScene(Scene):
         if not self._game_start_sound_played:
             self.audio.play_game_start()
             self._game_start_sound_played = True
+
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        self.screen_w = new_w
+        self.screen_h = new_h
+        self.renderer = Renderer(
+            tile_size=self._compute_tile_size(new_w, new_h),
+            variant=self._variant,
+        )
+        self._build_layout()
 
     def handle_events(self) -> None:
         """Traite les entrées utilisateur (clavier, souris, boutons)."""

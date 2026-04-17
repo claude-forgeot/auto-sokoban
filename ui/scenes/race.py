@@ -69,18 +69,11 @@ class RaceScene(Scene):
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
-
-        # Layout
-        self._col_w = screen_w // COL_COUNT
         self._header_h = 55
         self._board_y = self._header_h
-        cols = self._initial_state.width
-        rows = self._initial_state.height
-        max_tile = min(24, (self._col_w - 20) // max(cols, 1), (screen_h - 200) // max(rows, 1))
-        self._tile_size = max(12, max_tile)
-
-        variant = hash(level_meta.name) % 3
-        self._renderers = [Renderer(tile_size=self._tile_size, variant=variant) for _ in range(COL_COUNT)]
+        self._variant = hash(level_meta.name) % 3
+        self._compute_layout(screen_w, screen_h)
+        self._renderers = [Renderer(tile_size=self._tile_size, variant=self._variant) for _ in range(COL_COUNT)]
 
         self._lanes: list[LaneState] = [
             LaneState(solver=AStar()),
@@ -95,25 +88,45 @@ class RaceScene(Scene):
         self._font_small: pygame.font.Font | None = None
         self._buttons: list[Button] = []
 
-    def on_enter(self) -> None:
-        self._font = load_font(16)
-        self._font_small = load_font(12)
+    def _compute_layout(self, screen_w: int, screen_h: int) -> None:
+        self._col_w = screen_w // COL_COUNT
+        cols = self._initial_state.width
+        rows = self._initial_state.height
+        max_tile = min(24, (self._col_w - 20) // max(cols, 1), (screen_h - 200) // max(rows, 1))
+        self._tile_size = max(12, max_tile)
 
+    def _build_buttons(self) -> None:
+        assert self._font is not None
         btn_w, btn_h = 160, 32
         x = self.screen_w // 2 - btn_w // 2
         y = self.screen_h - 40
-
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
                     Action.BACK_MENU, font=self._font,
                     color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
 
-        # MODIFICATION : Jouer le son de début lorsqu'on entre en mode course
+    def on_enter(self) -> None:
+        self._font = load_font(16)
+        self._font_small = load_font(12)
+        self._build_buttons()
+
         if self.audio is not None:
             self.audio.play_race_start()
 
         self._start_race()
+
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        self.screen_w = new_w
+        self.screen_h = new_h
+        self._compute_layout(new_w, new_h)
+        self._renderers = [
+            Renderer(tile_size=self._tile_size, variant=self._variant)
+            for _ in range(COL_COUNT)
+        ]
+        self._metrics = MetricsPanel(width=self._col_w - 10)
+        if self._font is not None:
+            self._build_buttons()
 
     def _start_race(self) -> None:
         """Lance les 3 solveurs en parallele."""

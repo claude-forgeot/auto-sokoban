@@ -38,14 +38,19 @@ class RankingScene(Scene):
 
     def on_enter(self) -> None:
         pygame.font.init()
-        self._font_title = pygame.font.SysFont("monospace", 28, bold=True)
-        self._font = pygame.font.SysFont("monospace", 16)
+        from ui.fonts import load_font
+        self._font_title = load_font(28, bold=True)
+        self._font = load_font(16)
 
         if self.level_name:
             self._entries = get_ranking(self.level_name, limit=10)
         else:
             self._entries = get_all_ranking(limit=15)
 
+        self._build_buttons()
+
+    def _build_buttons(self) -> None:
+        assert self._font is not None
         btn_w, btn_h = 180, 35
         x = self.screen_w // 2 - btn_w // 2
         self._buttons = [
@@ -58,6 +63,12 @@ class RankingScene(Scene):
                 hover_color=(140, 60, 60),
             ),
         ]
+
+    def on_resize(self, new_w: int, new_h: int) -> None:
+        self.screen_w = new_w
+        self.screen_h = new_h
+        if self._font is not None:
+            self._build_buttons()
 
     def handle_events(self) -> None:
         actions = poll_events(self._buttons)
