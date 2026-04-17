@@ -80,7 +80,7 @@ class GameScene(Scene):
         C'est le bon moment pour jouer le son de début de niveau.
         """
         pygame.font.init()
-        self._font = pygame.font.SysFont("monospace", 18)
+        self._font = load_font(18)
 
         btn_w, btn_h = 120, 35
         x = self.screen_w - btn_w - 20
@@ -127,21 +127,14 @@ class GameScene(Scene):
                 direction = _ACTION_TO_DIR[action]
                 if self.board.move(direction):
                     self.move_count += 1
-                    
-                    # MODIFICATION : Utilisation du nouveau son "bottle_clank"
-                    # pour les poussées de caisse au lieu de "push"
-                    # et garder le son "move" pour les mouvements simples
-                    if self._last_was_push():
-                        self.audio.play_bottle_clank()
-                    else:
-                        self.audio.play_sfx("move")
-                    
-                    # Verification de victoire
                     if direction == Direction.LEFT:
                         self._facing_left = True
                     elif direction == Direction.RIGHT:
                         self._facing_left = False
-                    self.audio.play_sfx("push" if self._last_was_push() else "move")
+                    if self._last_was_push():
+                        self.audio.play_bottle_clank()
+                    else:
+                        self.audio.play_sfx("move")
                     if self.board.is_won():
                         self.won = True
                         self._win_elapsed = time.time() - self.start_time
