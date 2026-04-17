@@ -61,6 +61,7 @@ _KEY_MAP: dict[int, Action] = {
     pygame.K_t: Action.CYCLE_TIMEOUT,
     pygame.K_PAGEUP: Action.SCROLL_UP,
     pygame.K_PAGEDOWN: Action.SCROLL_DOWN,
+    pygame.K_F10: Action.ABANDON,
 }
 
 

@@ -6,7 +6,7 @@ import time
 
 import pygame
 
-from game.board import Direction
+from game.board import Direction, detect_freeze_deadlocks, is_lost
 from game.db import save_score
 from game.level import LevelMeta, load_level
 from ui.audio import AudioManager
@@ -94,7 +94,9 @@ class GameScene(Scene):
             Button(pygame.Rect(x, y + 45, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
             Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
                     color=(40, 40, 100), hover_color=(60, 60, 140)),
-            Button(pygame.Rect(x, y + 145, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
+            Button(pygame.Rect(x, y + 135, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font,
+                    color=(120, 70, 30), hover_color=(160, 100, 50)),
+            Button(pygame.Rect(x, y + 180, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
                     color=(100, 40, 40), hover_color=(140, 60, 60)),
         ]
 
@@ -162,6 +164,12 @@ class GameScene(Scene):
                         self._win_elapsed = time.time() - self.start_time
                         self._entering_name = True
                         self.audio.play_sfx("win")
+                    elif is_lost(self.board.state):
+                        self._to_game_over("deadlock")
+                        return
+            elif action == Action.ABANDON and not self.won:
+                self._to_game_over("abandon")
+                return
             elif action == Action.UNDO and not self.won:
                 if self.board.undo():
                     self.move_count = max(0, self.move_count - 1)
@@ -233,6 +241,26 @@ class GameScene(Scene):
     def _last_was_push(self) -> bool:
         """Verifie si le dernier mouvement a pousse une caisse."""
         return self.board.was_last_push()
+
+    def _to_game_over(self, reason: str) -> None:
+        """Bascule vers GameOverScene avec la raison donnee (deadlock/abandon)."""
+        from ui.scenes.game_over import GameOverScene
+        frozen = detect_freeze_deadlocks(self.board.state)
+        elapsed = time.time() - self.start_time
+        self.manager.switch(
+            GameOverScene(
+                self.manager,
+                self.level_meta,
+                self.board.state,
+                reason,
+                self.move_count,
+                elapsed,
+                frozenset(frozen),
+                self.audio,
+                screen_w=self.screen_w,
+                screen_h=self.screen_h,
+            )
+        )
 
     def update(self) -> None:
         pass
