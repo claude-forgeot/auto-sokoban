@@ -11,6 +11,7 @@ from game.db import save_score
 from game.level import LevelMeta, load_level
 from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
+from ui.fonts import load_font
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
@@ -46,7 +47,15 @@ class GameScene(Scene):
         self.screen_h = screen_h
 
         self.board = load_level(level_meta.path)
-        self.renderer = Renderer(tile_size=tile_size)
+        panel_w = 160
+        hud_h = 50
+        available_w = screen_w - panel_w - 40
+        available_h = screen_h - hud_h - 20
+        cols = self.board.state.width
+        rows = self.board.state.height
+        adaptive_tile = min(tile_size, available_w // max(cols, 1), available_h // max(rows, 1))
+        variant = hash(level_meta.name) % 3
+        self.renderer = Renderer(tile_size=max(16, adaptive_tile), variant=variant)
         self.move_count = 0
         self.start_time = 0.0
         self.won = False
@@ -57,10 +66,11 @@ class GameScene(Scene):
         self._player_name = ""
         self._score_saved = False
         self._win_elapsed = 0.0
+        self._confirm_solve = False
+        self._facing_left = False
 
     def on_enter(self) -> None:
-        pygame.font.init()
-        self._font = pygame.font.SysFont("monospace", 18)
+        self._font = load_font(18)
 
         btn_w, btn_h = 120, 35
         x = self.screen_w - btn_w - 20
@@ -68,8 +78,8 @@ class GameScene(Scene):
 
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
-            Button(pygame.Rect(x, y + 45, btn_w, btn_h), "REINIT.", Action.RESET, font=self._font),
-            Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RESOUDRE", Action.SOLVE, font=self._font,
+            Button(pygame.Rect(x, y + 45, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
+            Button(pygame.Rect(x, y + 90, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
                    color=(40, 40, 100), hover_color=(60, 60, 140)),
             Button(pygame.Rect(x, y + 145, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
                    color=(100, 40, 40), hover_color=(140, 60, 60)),
@@ -81,7 +91,11 @@ class GameScene(Scene):
             self._handle_name_input()
             return
 
-        actions = poll_events(self._buttons)
+        if self._confirm_solve:
+            self._handle_solve_confirm()
+            return
+
+        actions = poll_events(self._buttons, audio=self.audio)
         for action in actions:
             if action == Action.QUIT:
                 self.manager.quit()
@@ -94,6 +108,10 @@ class GameScene(Scene):
                 direction = _ACTION_TO_DIR[action]
                 if self.board.move(direction):
                     self.move_count += 1
+                    if direction == Direction.LEFT:
+                        self._facing_left = True
+                    elif direction == Direction.RIGHT:
+                        self._facing_left = False
                     self.audio.play_sfx("push" if self._last_was_push() else "move")
                     if self.board.is_won():
                         self.won = True
@@ -103,19 +121,33 @@ class GameScene(Scene):
             elif action == Action.UNDO and not self.won:
                 if self.board.undo():
                     self.move_count = max(0, self.move_count - 1)
+                    self.audio.play_sfx("move")
             elif action == Action.RESET:
                 self.board.reset()
                 self.move_count = 0
                 self.start_time = time.time()
                 self.won = False
             elif action == Action.SOLVE and not self.won:
-                from ui.scenes.solver import SolverScene
-                solver = SolverScene(
-                    self.manager, self.level_meta,
-                    screen_w=self.screen_w, screen_h=self.screen_h,
-                )
-                self.manager.switch(solver)
+                self._confirm_solve = True
                 return
+
+    def _handle_solve_confirm(self) -> None:
+        """Attend confirmation O/N avant de lancer le solveur."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.manager.quit()
+                return
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_o, pygame.K_y, pygame.K_RETURN):
+                    from ui.scenes.solver import SolverScene
+                    solver = SolverScene(
+                        self.manager, self.level_meta,
+                        screen_w=self.screen_w, screen_h=self.screen_h,
+                    )
+                    self.manager.switch(solver)
+                    return
+                elif event.key in (pygame.K_n, pygame.K_ESCAPE):
+                    self._confirm_solve = False
 
     def _handle_name_input(self) -> None:
         """Gere la saisie du nom du joueur apres victoire."""
@@ -169,7 +201,7 @@ class GameScene(Scene):
         screen.blit(hud_surf, (20, 15))
 
         # Grille centree
-        board_surface = self.renderer.render(self.board.state)
+        board_surface = self.renderer.render(self.board.state, facing_left=self._facing_left)
         bw, bh = board_surface.get_size()
         panel_w = 160
         available_w = self.screen_w - panel_w
@@ -181,9 +213,18 @@ class GameScene(Scene):
         for btn in self._buttons:
             btn.draw(screen)
 
+        # Confirmation résolution automatique
+        if self._confirm_solve:
+            confirm_text = "Abandonner la partie ? [O]ui / [N]on"
+            confirm_surf = self._font.render(confirm_text, True, INPUT_COLOR)
+            screen.blit(
+                confirm_surf,
+                (self.screen_w // 2 - confirm_surf.get_width() // 2, self.screen_h - 40),
+            )
+
         # Message de victoire et saisie du nom
         if self.won:
-            win_text = f"NIVEAU TERMINE ! {self.move_count} coups en {mins:02d}:{secs:02d}"
+            win_text = f"NIVEAU TERMINÉ ! {self.move_count} coups en {mins:02d}:{secs:02d}"
             win_surf = self._font.render(win_text, True, WIN_COLOR)
             screen.blit(
                 win_surf,
@@ -196,7 +237,7 @@ class GameScene(Scene):
                     prompt_surf,
                     (self.screen_w // 2 - prompt_surf.get_width() // 2, self.screen_h - 50),
                 )
-                hint = "[Entree] Valider  |  [Echap] Passer"
+                hint = "[Entrée] Valider  |  [Échap] Passer"
                 hint_surf = self._font.render(hint, True, HUD_COLOR)
                 screen.blit(
                     hint_surf,

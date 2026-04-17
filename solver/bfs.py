@@ -68,24 +68,32 @@ class BFS(Solver):
         progress_queue: queue.Queue,
         cancel_event: threading.Event,
         start_time: float,
-    ) -> tuple[bool, tuple[SolverStep, ...], int]:
+    ) -> tuple[bool, tuple[SolverStep, ...], int, dict[tuple[int, int], int]]:
         if initial.is_won():
-            return True, (), 0
+            return True, (), 0, {}
 
         visited: set[BoardState] = {initial}
         frontier: deque[tuple[BoardState, list[Direction]]] = deque()
         frontier.append((initial, []))
         nodes_explored = 0
+        visit_counts: dict[tuple[int, int], int] = {}
 
         while frontier:
             if cancel_event.is_set():
-                return False, (), nodes_explored
+                return False, (), nodes_explored, visit_counts
 
             state, path = frontier.popleft()
             nodes_explored += 1
+            pos = state.player
+            visit_counts[pos] = visit_counts.get(pos, 0) + 1
 
             if nodes_explored % 50 == 0:
-                self._report_progress(progress_queue, nodes_explored, start_time)
+                self._report_progress(
+                    progress_queue, nodes_explored, start_time,
+                    frontier_size=len(frontier),
+                    current_depth=len(path),
+                    visit_counts=visit_counts,
+                )
 
             for direction in Direction:
                 new_state = self.apply_move(state, direction)
@@ -97,9 +105,9 @@ class BFS(Solver):
 
                 if new_state.is_won():
                     steps = self.build_steps(initial, new_path, nodes_explored)
-                    return True, steps, nodes_explored
+                    return True, steps, nodes_explored, visit_counts
 
                 frontier.append((new_state, new_path))
 
-        return False, (), nodes_explored
+        return False, (), nodes_explored, visit_counts
 
