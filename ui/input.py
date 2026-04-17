@@ -35,6 +35,7 @@ class Action(Enum):
     CYCLE_TIMEOUT = auto()
     SCROLL_UP = auto()
     SCROLL_DOWN = auto()
+    NOOP = auto()  # placeholder pour boutons routes par rect (onglets)
 
 
 _KEY_MAP: dict[int, Action] = {

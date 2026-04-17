@@ -170,7 +170,7 @@ class LevelSelectScene(Scene):
                 Button(
                     pygame.Rect(i * tab_w, 0, tab_w, tab_h),
                     label,
-                    Action.PAUSE,
+                    Action.NOOP,
                     font=self._font_normal,
                     color=color,
                     hover_color=hover,
