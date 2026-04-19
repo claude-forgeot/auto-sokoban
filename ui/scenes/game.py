@@ -183,7 +183,10 @@ class GameScene(Scene):
                     self._win_elapsed = time.time() - self.start_time
                     self._entering_name = True
                     self.audio.play_sfx("win")
-                elif is_lost(self.board.state):
+                elif self._last_was_push() and is_lost(self.board.state):
+                    # is_lost appelle detect_freeze_deadlocks (recursif sur
+                    # toutes les caisses) ; l'etat ne peut changer qu'apres
+                    # un push, inutile de recomputer sur un simple deplacement.
                     self._to_game_over("deadlock")
                     return
             elif action == Action.ABANDON and not self.won:
