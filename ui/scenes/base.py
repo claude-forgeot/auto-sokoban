@@ -50,11 +50,46 @@ class SceneManager:
         return self._scene
 
     def switch(self, scene: Scene) -> None:
-        """Change de scene."""
-        if self._scene is not None:
-            self._scene.on_exit()
+        """Change de scene avec fondu noir 150ms (skip au premier demarrage)."""
+        old = self._scene
+        screen = pygame.display.get_surface()
+
+        if old is not None and screen is not None:
+            old_snapshot = screen.copy()
+            old.on_exit()
+        else:
+            old_snapshot = None
+
         self._scene = scene
-        self._scene.on_enter()
+        scene.on_enter()
+
+        if old_snapshot is not None and screen is not None:
+            new_snapshot = screen.copy()
+            scene.draw(new_snapshot)
+            self._fade_transition(screen, old_snapshot, new_snapshot)
+
+    @staticmethod
+    def _fade_transition(
+        screen: pygame.Surface,
+        old_snapshot: pygame.Surface,
+        new_snapshot: pygame.Surface,
+    ) -> None:
+        FRAMES = 9
+        overlay = pygame.Surface(screen.get_size())
+        overlay.fill((0, 0, 0))
+        clock = pygame.time.Clock()
+        for i in range(FRAMES):
+            t = i / (FRAMES - 1)
+            if t < 0.5:
+                screen.blit(old_snapshot, (0, 0))
+                alpha = int(255 * 2 * t)
+            else:
+                screen.blit(new_snapshot, (0, 0))
+                alpha = int(255 * (1 - 2 * (t - 0.5)))
+            overlay.set_alpha(alpha)
+            screen.blit(overlay, (0, 0))
+            pygame.display.flip()
+            clock.tick(60)
 
     def quit(self) -> None:
         self.running = False
