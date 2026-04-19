@@ -194,12 +194,7 @@ class GameScene(Scene):
                     self.move_count = max(0, self.move_count - 1)
                     self.audio.play_sfx("move")
             elif action == Action.RESET:
-                # MODIFICATION : Quand on réinitialise le niveau, rejouer le son de début
-                self.board.reset()
-                self.move_count = 0
-                self.start_time = time.time()
-                self.won = False
-                self._game_start_sound_played = False  # Permet de rejouer le son de début après reset
+                self._reset_session_state()
                 self.audio.play_music("game_start", loops=0)
             elif action == Action.SOLVE and not self.won:
                 self._confirm_solve = True
@@ -261,6 +256,25 @@ class GameScene(Scene):
             elif event.type == pygame.TEXTINPUT:
                 if len(self._player_name) < 12:
                     self._player_name += event.text
+
+    def _reset_session_state(self) -> None:
+        """Remet a zero tous les flags/compteurs pour une nouvelle partie.
+
+        Centralise la reinitialisation pour que tout chemin (RESET manuel,
+        reuse ulterieur) parte d'un etat propre ; evite les flags residuels
+        (_score_saved, _entering_name, _confirm_solve...) entre deux sessions.
+        """
+        self.board.reset()
+        self.move_count = 0
+        self.start_time = time.time()
+        self.won = False
+        self._entering_name = False
+        self._player_name = ""
+        self._score_saved = False
+        self._confirm_solve = False
+        self._invalid_move_shake_start = 0
+        self._facing_left = False
+        self._game_start_sound_played = False
 
     def _last_was_push(self) -> bool:
         """Verifie si le dernier mouvement a pousse une caisse."""
