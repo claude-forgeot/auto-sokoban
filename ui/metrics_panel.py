@@ -160,9 +160,9 @@ class MetricsPanel:
         r = self._result
         reason_labels = {
             "found": ("Solution trouvée !", COLOR_BEST),
-            "exhausted": ("Espace exploré sans solution", COLOR_WORST),
+            "exhausted": ("Sans solution", COLOR_WORST),
             "timeout": (f"Timeout ({r.time_ms / 1000:.0f}s)", COLOR_TIMEOUT_WARN),
-            "user_cancelled": ("Arrêté par l'utilisateur", COLOR_TIMEOUT_WARN),
+            "user_cancelled": ("Interrompu", COLOR_TIMEOUT_WARN),
         }
         status_label, status_color = reason_labels.get(
             r.stop_reason, ("Résolu" if r.found else "Échec",
