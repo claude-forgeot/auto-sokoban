@@ -16,7 +16,7 @@ from solver.base import DEFAULT_TIMEOUT_MS, Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
-from ui.fonts import load_font
+from ui.fonts import load_font, load_mono, load_serif
 from ui.layout import BASE_H, BASE_W, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
@@ -24,10 +24,14 @@ from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
 from ui.colors import (
-    BG_PRIMARY as BG_COLOR,
-    TEXT_MAIN as TEXT_COLOR,
-    ACCENT_YELLOW as STATUS_COLOR,
+    BG as BG_COLOR,
+    INK as TEXT_COLOR,
+    GOLD as STATUS_COLOR,
     SEPARATOR,
+    PANEL,
+    OLIVE,
+    TERRACOTTA,
+    TERRACOTTA_DARK,
 )
 
 REPLAY_SPEEDS = [
@@ -137,29 +141,29 @@ class SolverScene(Scene):
         y_base = self.screen_h - max(200, int(200 * sy))
         self._buttons = [
             Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
-                    color=(40, 100, 40), hover_color=(60, 140, 60)),
+                    variant="primary"),
             Button(pygame.Rect(x, y_base + spacing, btn_w, btn_h), "ALGO SUIVANT", Action.SOLVE,
-                   font=self._font, color=(40, 40, 100), hover_color=(60, 60, 140)),
+                   font=self._font, variant="solve"),
             Button(pygame.Rect(x, y_base + spacing * 2, btn_w, btn_h), "HEATMAP [H]", Action.HEATMAP,
-                   font=self._font, color=(80, 60, 20), hover_color=(120, 90, 30)),
+                   font=self._font, variant="rank"),
             Button(pygame.Rect(x, y_base + spacing * 3 + int(10 * sy), btn_w, btn_h), "RETOUR MENU",
-                   Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
+                   Action.BACK_MENU, font=self._font, variant="quit"),
         ]
         self._stop_button = Button(
             pygame.Rect(x, y_base - spacing, btn_w, btn_h),
             "STOP",
             Action.STOP_SOLVER,
             font=self._font,
-            color=(160, 30, 30),
-            hover_color=(200, 50, 50),
+            color=TERRACOTTA,
+            shadow_color=TERRACOTTA_DARK,
+            text_color=(255, 255, 255),
         )
         self._timeout_button = Button(
             pygame.Rect(x, y_base - spacing * 2, btn_w, btn_h),
             self._timeout_label(),
             Action.CYCLE_TIMEOUT,
             font=self._font,
-            color=SEPARATOR,
-            hover_color=(90, 90, 120),
+            variant="ghost",
         )
 
     def _timeout_label(self) -> str:
@@ -176,7 +180,7 @@ class SolverScene(Scene):
         self._build_layout()
 
         if self.audio is not None:
-            self.audio.play_game_start()
+            self.audio.play_music("game_start", loops=0)
 
         self._run_current_solver()
 
@@ -245,6 +249,7 @@ class SolverScene(Scene):
                 from ui.scenes.menu import MenuScene
                 menu = MenuScene(
                     self.manager,
+                    audio=self.audio,
                     screen_w=self.screen_w,
                     screen_h=self.screen_h,
                 )

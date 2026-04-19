@@ -14,7 +14,7 @@ from solver.base import Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
-from ui.fonts import load_font
+from ui.fonts import load_font, load_mono, load_serif
 from ui.layout import scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
@@ -22,13 +22,13 @@ from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
 from ui.colors import (
-    BG_PRIMARY as BG_COLOR,
-    TEXT_MAIN as TEXT_COLOR,
-    ACCENT_BLUE as HEADER_COLOR,
-    ACCENT_YELLOW as STATUS_COLOR,
-    SUCCESS_GREEN as DONE_COLOR,
+    BG as BG_COLOR,
+    INK as TEXT_COLOR,
+    SAGE_DARK as HEADER_COLOR,
+    GOLD as STATUS_COLOR,
+    SAGE as DONE_COLOR,
     SEPARATOR as SEPARATOR_COLOR,
-    DANGER_RED,
+    TERRACOTTA as DANGER_RED,
 )
 
 REPLAY_DELAY_MS = 250
@@ -112,7 +112,7 @@ class RaceScene(Scene):
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
                     Action.BACK_MENU, font=self._font,
-                    color=(100, 40, 40), hover_color=(140, 60, 60)),
+                    variant="quit"),
         ]
 
     def on_enter(self) -> None:
@@ -121,7 +121,7 @@ class RaceScene(Scene):
         self._build_buttons()
 
         if self.audio is not None:
-            self.audio.play_race_start()
+            self.audio.play_music("race", loops=-1)
 
         self._start_race()
 
@@ -167,7 +167,8 @@ class RaceScene(Scene):
                     self.audio.return_to_menu()
                 from ui.scenes.menu import MenuScene
                 self.manager.switch(MenuScene(
-                    self.manager, screen_w=self.screen_w, screen_h=self.screen_h,
+                    self.manager, audio=self.audio,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
                 ))
                 return
 

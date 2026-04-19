@@ -12,18 +12,20 @@ from game.db import save_score
 from game.level import LevelMeta, load_level
 from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
-from ui.fonts import load_font
+from ui.fonts import load_font, load_mono, load_serif
 from ui.layout import scale_font_size
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
 from ui.colors import (
-    BG_PRIMARY as BG_COLOR,
-    TEXT_MAIN as HUD_COLOR,
-    SUCCESS_GREEN as WIN_COLOR,
+    BG as BG_COLOR,
+    INK as HUD_COLOR,
+    SAGE as WIN_COLOR,
+    SAGE_DARK as LABEL_COLOR,
+    PANEL as HUD_BG,
+    OLIVE as HUD_BORDER,
+    BG as INPUT_COLOR,
 )
-
-INPUT_COLOR = (255, 255, 200)
 
 _ACTION_TO_DIR = {
     Action.MOVE_UP: Direction.UP,
@@ -63,6 +65,7 @@ class GameScene(Scene):
         self.won = False
 
         self._font: pygame.font.Font | None = None
+        self._font_label: pygame.font.Font | None = None
         self._buttons: list[Button] = []
         self._entering_name = False
         self._player_name = ""
@@ -100,14 +103,11 @@ class GameScene(Scene):
         x = self.screen_w - btn_w - int(20 * sx)
         y = max(80, int(80 * sy))
         self._buttons = [
-            Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font),
-            Button(pygame.Rect(x, y + spacing, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font),
-            Button(pygame.Rect(x, y + spacing * 2, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font,
-                    color=(40, 40, 100), hover_color=(60, 60, 140)),
-            Button(pygame.Rect(x, y + spacing * 3, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font,
-                    color=(120, 70, 30), hover_color=(160, 100, 50)),
-            Button(pygame.Rect(x, y + spacing * 4, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font,
-                    color=(100, 40, 40), hover_color=(140, 60, 60)),
+            Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font, variant="ghost"),
+            Button(pygame.Rect(x, y + spacing, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font, variant="ghost"),
+            Button(pygame.Rect(x, y + spacing * 2, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font, variant="solve"),
+            Button(pygame.Rect(x, y + spacing * 3, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font, variant="quit"),
+            Button(pygame.Rect(x, y + spacing * 4, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font, variant="quit"),
         ]
 
     def on_enter(self) -> None:
@@ -117,15 +117,13 @@ class GameScene(Scene):
         C'est le bon moment pour jouer le son de début de niveau.
         """
         pygame.font.init()
-        self._font = load_font(scale_font_size(18, self.screen_h))
+        self._font = load_mono(scale_font_size(18, self.screen_h))
+        self._font_label = load_serif(scale_font_size(14, self.screen_h), weight="bold")
         self._build_layout()
         self.start_time = time.time()
         
-        # MODIFICATION : Jouer le son de début de niveau une seule fois
-        # Le flag _game_start_sound_played empêche le son de se rejouer
-        # si on quitte et revient dans la même instance de scene
         if not self._game_start_sound_played:
-            self.audio.play_game_start()
+            self.audio.play_music("game_start", loops=0)
             self._game_start_sound_played = True
 
     def on_resize(self, new_w: int, new_h: int) -> None:
@@ -154,7 +152,10 @@ class GameScene(Scene):
             elif action == Action.BACK_MENU:
                 self.audio.return_to_menu()  # Assurer la transition audio vers le menu
                 from ui.scenes.menu import MenuScene
-                menu = MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
+                menu = MenuScene(
+                    self.manager, audio=self.audio,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
+                )
                 self.manager.switch(menu)
                 return
             elif action in _ACTION_TO_DIR and not self.won:
@@ -193,7 +194,7 @@ class GameScene(Scene):
                 self.start_time = time.time()
                 self.won = False
                 self._game_start_sound_played = False  # Permet de rejouer le son de début après reset
-                self.audio.play_game_start()
+                self.audio.play_music("game_start", loops=0)
             elif action == Action.SOLVE and not self.won:
                 self._confirm_solve = True
                 return
@@ -281,15 +282,30 @@ class GameScene(Scene):
     def draw(self, screen: pygame.Surface) -> None:
         screen.fill(BG_COLOR)
         assert self._font is not None
+        assert self._font_label is not None
 
-        # HUD haut
+        # HUD haut : barre PANEL + 3 champs label/valeur.
         elapsed = self._win_elapsed if self.won else time.time() - self.start_time
         mins, secs = divmod(int(elapsed), 60)
-        hud_text = f"{self.level_meta.name}  |  Coups: {self.move_count}  |  Temps: {mins:02d}:{secs:02d}"
-        hud_surf = self._font.render(hud_text, True, HUD_COLOR)
-        screen.blit(hud_surf, (20, 15))
+        hud_h = 44
+        hud_rect = pygame.Rect(10, 8, self.screen_w - 20, hud_h)
+        pygame.draw.rect(screen, HUD_BG, hud_rect, border_radius=10)
+        pygame.draw.rect(screen, HUD_BORDER, hud_rect, width=2, border_radius=10)
 
-        # Grille centree
+        fields = [
+            ("Niveau", self.level_meta.name),
+            ("Coups", str(self.move_count)),
+            ("Temps", f"{mins:02d}:{secs:02d}"),
+        ]
+        col_w = (hud_rect.width - 20) // len(fields)
+        for i, (label, value) in enumerate(fields):
+            col_x = hud_rect.left + 10 + i * col_w
+            lbl = self._font_label.render(f"{label.upper()} :", True, LABEL_COLOR)
+            val = self._font.render(value, True, HUD_COLOR)
+            screen.blit(lbl, (col_x, hud_rect.top + 6))
+            screen.blit(val, (col_x, hud_rect.top + 6 + lbl.get_height()))
+
+        # Grille centree sur panneau CREAM + bordure OLIVE.
         board_surface = self.renderer.render(self.board.state, facing_left=self._facing_left)
         bw, bh = board_surface.get_size()
         panel_w = 160
@@ -302,6 +318,10 @@ class GameScene(Scene):
                 gx += int(math.sin(elapsed * 0.030) * 4)
             else:
                 self._invalid_move_shake_start = 0
+        pad = 8
+        board_frame = pygame.Rect(gx - pad, gy - pad, bw + 2 * pad, bh + 2 * pad)
+        pygame.draw.rect(screen, HUD_BG, board_frame, border_radius=10)
+        pygame.draw.rect(screen, HUD_BORDER, board_frame, width=2, border_radius=10)
         screen.blit(board_surface, (gx, gy))
 
         # Boutons (panneau droite)
