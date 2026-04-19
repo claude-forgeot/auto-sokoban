@@ -20,6 +20,13 @@ from ui.colors import (
 HEADER_COLOR = TEXT_COLOR
 
 
+def _fit(text: str, width: int) -> str:
+    """Tronque avec ellipsis si trop long, sinon pad à droite pour aligner les colonnes."""
+    if len(text) > width:
+        return text[: width - 1] + "\u2026"
+    return text.ljust(width)
+
+
 class RankingScene(Scene):
     """Affiche le classement pour un niveau ou global."""
 
@@ -155,8 +162,10 @@ class RankingScene(Scene):
             for i, entry in enumerate(self._entries):
                 rank = i + 1
                 mins, secs = divmod(int(entry.time_s), 60)
+                player = _fit(entry.player, 12)
+                level = _fit(entry.level, 15)
                 line = (
-                    f"{rank:>3}  {entry.player:<12} {entry.level:<15} "
+                    f"{rank:>3}  {player} {level} "
                     f"{entry.moves:>6} {mins:02d}:{secs:02d}   {entry.date:<16}"
                 )
                 line_surf = self._font.render(line, True, TEXT_COLOR)
