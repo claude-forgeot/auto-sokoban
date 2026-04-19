@@ -54,13 +54,24 @@ class BoardState:
         return "empty"
 
     def __hash__(self) -> int:
-        """Hash base sur (player, boxes) uniquement."""
-        return hash((self.player, self.boxes))
+        """Hash base sur tous les champs d'identite du plateau.
+
+        Inclut walls et targets pour que deux BoardStates de niveaux
+        differents ne soient pas consideres egaux s'ils partagent
+        joueur et caisses. Le cache de hash interne des frozenset
+        rend cette inclusion quasi-gratuite apres premier calcul.
+        """
+        return hash((self.player, self.boxes, self.walls, self.targets))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, BoardState):
             return NotImplemented
-        return self.player == other.player and self.boxes == other.boxes
+        return (
+            self.player == other.player
+            and self.boxes == other.boxes
+            and self.walls == other.walls
+            and self.targets == other.targets
+        )
 
 
 class Board:
