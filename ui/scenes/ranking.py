@@ -15,6 +15,7 @@ from ui.colors import (
     INK as TEXT_COLOR,
     OLIVE as MUTED_COLOR,
     SAGE,
+    PANEL,
 )
 
 HEADER_COLOR = TEXT_COLOR
@@ -168,6 +169,11 @@ class RankingScene(Scene):
                     f"{rank:>3}  {player} {level} "
                     f"{entry.moves:>6} {mins:02d}:{secs:02d}   {entry.date:<16}"
                 )
+                if i % 2 == 1:
+                    pygame.draw.rect(
+                        screen, PANEL,
+                        pygame.Rect(32, y - 2, self.screen_w - 64, row_h),
+                    )
                 line_surf = self._font.render(line, True, TEXT_COLOR)
                 screen.blit(line_surf, (40, y))
                 y += row_h
