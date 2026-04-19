@@ -18,27 +18,29 @@ import pygame
 from game.db import get_best_for_level, get_completed_levels
 from game.level import LevelMeta, list_levels, load_level
 from ui.audio import AudioManager
-from ui.fonts import load_font
+from ui.fonts import load_font, load_mono, load_serif
 from ui.input import Action, Button, poll_events
 from ui.layout import BASE_H, BASE_W, scale_font_size
 from ui.renderer import Renderer
 from ui.scenes import Mode
 from ui.scenes.base import Scene, SceneManager
 
-# Couleurs
 from ui.colors import (
-    BG_PRIMARY as BG_COLOR,
-    ACCENT_YELLOW as TITLE_COLOR,
-    TEXT_MAIN as TEXT_COLOR,
-    TEXT_MUTED as MUTED_COLOR,
-    ACCENT_BLUE as HIGHLIGHT_BORDER,
+    BG as BG_COLOR,
+    SAGE_DARK as TITLE_COLOR,
+    INK as TEXT_COLOR,
+    OLIVE as MUTED_COLOR,
+    TERRACOTTA as HIGHLIGHT_BORDER,
     SEPARATOR,
+    PANEL as PANEL_COLOR,
+    CREAM,
+    SAGE,
+    OLIVE_DARK,
 )
 
-PANEL_COLOR = (35, 35, 50)
-TAB_ACTIVE_COLOR = (60, 60, 100)
-TAB_INACTIVE_COLOR = (40, 40, 50)
-COMPLETED_MARK_COLOR = (80, 220, 120)
+TAB_ACTIVE_COLOR = SAGE
+TAB_INACTIVE_COLOR = CREAM
+COMPLETED_MARK_COLOR = SAGE
 
 # Dimensions layout (800x600)
 TAB_BAR_H = 50
@@ -74,11 +76,11 @@ class LevelSelectScene(Scene):
     def __init__(
         self,
         manager: SceneManager,
+        audio: AudioManager,
         mode: Mode = Mode.PLAY,
         screen_w: int = 800,
         screen_h: int = 600,
         levels_dir: str | Path | None = None,
-        audio: AudioManager | None = None,
     ) -> None:
         super().__init__(manager)
         self.mode = mode
@@ -98,7 +100,7 @@ class LevelSelectScene(Scene):
         self._selected_in_tab: dict[str, int] = {d: 0 for d in DIFFICULTIES}
         self._scroll_offset = 0
 
-        self.audio = audio if audio is not None else AudioManager()
+        self.audio = audio
 
         # Donnees BDD (chargees en on_enter).
         self._completed: set[str] = set()
@@ -128,7 +130,6 @@ class LevelSelectScene(Scene):
 
         self._build_layout()
         self._load_thumbnails()
-        self.audio.load()
 
     def on_resize(self, new_w: int, new_h: int) -> None:
         self.screen_w = new_w
@@ -136,9 +137,9 @@ class LevelSelectScene(Scene):
         self._build_layout()
 
     def _build_layout(self) -> None:
-        self._font_title = load_font(scale_font_size(22, self.screen_h), bold=True)
+        self._font_title = load_serif(scale_font_size(28, self.screen_h), weight="bold")
         self._font_normal = load_font(scale_font_size(16, self.screen_h))
-        self._font_small = load_font(scale_font_size(12, self.screen_h))
+        self._font_small = load_mono(scale_font_size(12, self.screen_h))
         self._build_tab_buttons()
         self._build_action_buttons()
 
@@ -168,8 +169,14 @@ class LevelSelectScene(Scene):
             count = len(self.levels_by_difficulty[diff])
             label = f"{diff.upper()} ({count})"
             active = i == self._active_difficulty_idx
-            color = TAB_ACTIVE_COLOR if active else TAB_INACTIVE_COLOR
-            hover = (min(color[0] + 25, 255), min(color[1] + 25, 255), min(color[2] + 25, 255))
+            if active:
+                color = TAB_ACTIVE_COLOR
+                shadow = OLIVE_DARK
+                text = (255, 255, 255)
+            else:
+                color = TAB_INACTIVE_COLOR
+                shadow = MUTED_COLOR
+                text = TEXT_COLOR
             self._tab_buttons.append(
                 Button(
                     pygame.Rect(i * tab_w, 0, tab_w, tab_h),
@@ -177,7 +184,8 @@ class LevelSelectScene(Scene):
                     Action.NOOP,
                     font=self._font_normal,
                     color=color,
-                    hover_color=hover,
+                    shadow_color=shadow,
+                    text_color=text,
                 )
             )
 
@@ -193,16 +201,14 @@ class LevelSelectScene(Scene):
                 "RETOUR",
                 Action.BACK_MENU,
                 font=self._font_normal,
-                color=(100, 40, 40),
-                hover_color=(140, 60, 60),
+                variant="quit",
             ),
             Button(
                 pygame.Rect(self.screen_w - margin - btn_w, y, btn_w, btn_h),
                 MODE_LAUNCH_LABELS[self.mode],
                 Action.PLAY,
                 font=self._font_normal,
-                color=(40, 100, 40),
-                hover_color=(60, 140, 60),
+                variant="primary",
             ),
         ]
 
@@ -367,7 +373,10 @@ class LevelSelectScene(Scene):
     def _back_to_menu(self) -> None:
         from ui.scenes.menu import MenuScene
         self.manager.switch(
-            MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
+            MenuScene(
+                self.manager, audio=self.audio,
+                screen_w=self.screen_w, screen_h=self.screen_h,
+            )
         )
 
     def update(self) -> None:
@@ -485,7 +494,7 @@ class LevelSelectScene(Scene):
         track_w = 6
         track_x = panel_rect.right - track_w - 2
         track_rect = pygame.Rect(track_x, panel_rect.top + 4, track_w, panel_rect.height - 8)
-        pygame.draw.rect(screen, (50, 50, 65), track_rect, border_radius=3)
+        pygame.draw.rect(screen, CREAM, track_rect, border_radius=3)
 
         ratio = panel_rect.height / content_h
         thumb_h = max(20, int(track_rect.height * ratio))
