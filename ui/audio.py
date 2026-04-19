@@ -43,7 +43,11 @@ class AudioManager:
     def load(self) -> None:
         """Initialise le mixer et charge les samples depuis assets/."""
         if not pygame.mixer.get_init():
-            pygame.mixer.init()
+            try:
+                pygame.mixer.init()
+            except pygame.error as exc:
+                logger.warning("pygame.mixer.init() a echoue : %s (jeu sans son)", exc)
+                return
         self._mixer_ready = True
 
         # Charge chaque effet sonore dans le dictionnaire _sfx
@@ -73,6 +77,8 @@ class AudioManager:
 
     def play_sfx(self, name: str) -> None:
         """Joue l'effet sonore ``name``. Ignore si absent ou mixer inactif."""
+        if not self._mixer_ready:
+            return
         sound = self._sfx.get(name)
         if sound is not None:
             sound.play()
@@ -127,7 +133,8 @@ class AudioManager:
         Cette methode doit etre appelee quand le joueur quitte une scene de jeu.
         """
         # Arrêter tous les effets sonores qui pourraient jouer
-        pygame.mixer.stop()
+        if self._mixer_ready:
+            pygame.mixer.stop()
         # Redéfinir le contexte
         self._current_context = "menu"
         # Relancer la musique de fond
