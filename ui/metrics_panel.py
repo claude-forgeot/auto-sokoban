@@ -13,10 +13,10 @@ from ui.colors import (
     SUCCESS_GREEN as COLOR_BEST,
     DANGER_RED as COLOR_WORST,
     SEPARATOR as COLOR_SEPARATOR,
+    PANEL as COLOR_BG,
 )
 
 # Couleurs
-COLOR_BG = (30, 30, 40)
 COLOR_FLASH = (255, 220, 50)
 COLOR_TIMEOUT_WARN = (255, 90, 90)
 
