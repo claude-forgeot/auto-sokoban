@@ -47,6 +47,8 @@ _KEY_MAP: dict[int, Action] = {
     pygame.K_s: Action.MOVE_DOWN,
     pygame.K_q: Action.MOVE_LEFT,
     pygame.K_d: Action.MOVE_RIGHT,
+    pygame.K_w: Action.MOVE_UP,
+    pygame.K_a: Action.MOVE_LEFT,
     pygame.K_u: Action.UNDO,
     pygame.K_BACKSPACE: Action.UNDO,
     pygame.K_r: Action.RESET,
