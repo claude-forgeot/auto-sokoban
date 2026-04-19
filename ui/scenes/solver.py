@@ -403,11 +403,14 @@ class SolverScene(Scene):
             comp_h = metrics_surf.get_height()
             # Timeline remplit la hauteur restante dans zones.metrics
             # (zones disjointes => jamais sous les boutons actions).
-            tl_h = max(80, m.height - 10 - comp_h - 6 - 10)
-            timeline_surf = self.metrics.render_timeline(
-                self._timelines, width=m.width - 20, height=tl_h,
-            )
-            screen.blit(timeline_surf, (m.left + 10, m.top + 10 + comp_h + 6))
+            # Skip si espace < 40px : a MIN_H=480 le tableau comparatif
+            # remplit deja toute la zone, la timeline serait illisible.
+            tl_h_avail = m.height - 10 - comp_h - 6 - 10
+            if tl_h_avail >= 40:
+                timeline_surf = self.metrics.render_timeline(
+                    self._timelines, width=m.width - 20, height=tl_h_avail,
+                )
+                screen.blit(timeline_surf, (m.left + 10, m.top + 10 + comp_h + 6))
         elif solver_running:
             metrics_surf = self.metrics.render_progress()
             screen.blit(metrics_surf, (m.left + 10, m.top + 10))
