@@ -1,6 +1,12 @@
 """Point d'entree du jeu Auto-Sokoban."""
 
+import logging
 import os
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(name)s: %(message)s",
+)
 
 # Centrer la fenetre au lancement plutot que laisser le WM (GNOME/tiling)
 # la placer/maximiser automatiquement. Doit etre defini avant pygame.init().
