@@ -157,6 +157,11 @@ class Renderer:
 
         if not visit_counts:
             return overlay
+        
+        # Vérifier que les positions sont dans les limites
+        for (row, col) in visit_counts.keys():
+            if not (0 <= row < state.height and 0 <= col < state.width):
+                raise ValueError(f"Invalid position ({row}, {col}) outside board bounds")
 
         max_count = max(visit_counts.values())
         if max_count == 0:

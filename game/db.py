@@ -50,6 +50,14 @@ def _connect() -> sqlite3.Connection:
 
 def save_score(player: str, level: str, moves: int, time_s: float) -> None:
     """Sauvegarde un score dans la base."""
+    # Validation des entrées
+    if not player or len(player) > 100:
+        raise ValueError("player must be 1-100 characters")
+    if not level or len(level) > 100:
+        raise ValueError("level must be 1-100 characters")
+    if moves < 0 or time_s < 0:
+        raise ValueError("moves and time_s must be non-negative")
+    
     with closing(_connect()) as conn:
         conn.execute(
             "INSERT INTO scores (player, level, moves, time_s) VALUES (?, ?, ?, ?)",
