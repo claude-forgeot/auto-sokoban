@@ -65,5 +65,32 @@ def clamp_window_size(w: int, h: int) -> tuple[int, int]:
 
 
 def compute_solver_zones(screen_w: int, screen_h: int) -> SolverZones:
-    """Decoupe l'ecran SolverScene en zones nommees disjointes."""
-    raise NotImplementedError
+    """Decoupe l'ecran SolverScene en zones nommees disjointes.
+
+    Regles :
+    - title_h scale vertical (min 30px)
+    - panel_w : 30% ecran, min 380px pour contenir MetricsPanel
+    - actions_h : 35% ecran, min 5 slots boutons
+    - metrics_h : reste de la hauteur (comp + timeline tiennent dedans)
+    - board : tout l'espace gauche
+
+    Garanties :
+    - Les 4 zones sont disjointes (pas de chevauchement).
+    - panel_w >= 380 (MetricsPanel.width = 380-20 = 360 OK pour comp).
+    - board_w >= MIN_W - 380 = 260 (playable).
+    """
+    sy = screen_h / BASE_H
+    title_h = max(30, int(40 * sy))
+    panel_w = max(380, int(screen_w * 0.30))
+    btn_h = max(35, int(35 * sy))
+    btn_spacing = max(6, int(6 * sy))
+    actions_h = max(5 * (btn_h + btn_spacing) + 16, int(screen_h * 0.35))
+    metrics_h = screen_h - title_h - actions_h
+    board_w = screen_w - panel_w
+
+    return SolverZones(
+        title=pygame.Rect(0, 0, screen_w, title_h),
+        board=pygame.Rect(0, title_h, board_w, screen_h - title_h),
+        metrics=pygame.Rect(board_w, title_h, panel_w, metrics_h),
+        actions=pygame.Rect(board_w, title_h + metrics_h, panel_w, actions_h),
+    )
