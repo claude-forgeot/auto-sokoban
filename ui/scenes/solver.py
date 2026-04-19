@@ -418,47 +418,62 @@ class SolverScene(Scene):
             metrics_surf = self.metrics.render()
             screen.blit(metrics_surf, (m.left + 10, m.top + 10))
 
-        # Status
+        # Status + speed : regroupes dans un bandeau footer PANEL en bas du plateau
+        # pour les relier visuellement au reste de l'UI (audit 2026-04-19 #235).
+        footer_lines: list[str] = []
         if self._solver_thread is not None and self._solver_thread.is_alive():
             algo = self._solvers[self._current_solver_idx].name
             if self._stopped:
-                status = f"[{algo}] Arrêt en cours..."
+                footer_lines.append(f"[{algo}] Arrêt en cours...")
             else:
-                status = f"[{algo}] Résolution en cours..."
-            status_surf = self._font.render(status, True, STATUS_COLOR)
-            line_h = self._font.get_linesize()
-            screen.blit(status_surf, (20, self.screen_h - line_h * 2 - 8))
+                footer_lines.append(f"[{algo}] Résolution en cours...")
         elif self._current_result:
             algo = self._current_result.algo_name
             reason = self._current_result.stop_reason
             if self._replaying:
-                status = f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
+                footer_lines.append(
+                    f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
+                )
             elif self._all_done:
-                status = "Tous les algorithmes terminés - Comparaison finale"
+                footer_lines.append("Tous les algorithmes terminés - Comparaison finale")
             elif reason == "user_cancelled":
-                status = f"[{algo}] Résolution stoppée"
+                footer_lines.append(f"[{algo}] Résolution stoppée")
             elif reason == "timeout":
                 timeout_s = TIMEOUT_OPTIONS_MS[self._timeout_idx] // 1000
-                status = f"[{algo}] Timeout atteint ({timeout_s}s) - Pas de solution"
+                footer_lines.append(f"[{algo}] Timeout atteint ({timeout_s}s) - Pas de solution")
             elif self._replay_done:
-                status = f"[{algo}] Terminé - Appuyez sur ALGO SUIVANT"
+                footer_lines.append(f"[{algo}] Terminé - Appuyez sur ALGO SUIVANT")
             elif not self._current_result.found:
-                status = f"[{algo}] Pas de solution trouvée"
+                footer_lines.append(f"[{algo}] Pas de solution trouvée")
             else:
-                status = f"[{algo}] En cours..."
-            status_surf = self._font.render(status, True, STATUS_COLOR)
-            line_h = self._font.get_linesize()
-            screen.blit(status_surf, (20, self.screen_h - line_h * 2 - 8))
+                footer_lines.append(f"[{algo}] En cours...")
 
-        # Indicateur vitesse / pause : pertinent uniquement pendant le replay.
         if self._replaying:
             speed_label = REPLAY_SPEEDS[self._speed_idx][0]
             if self._paused:
-                speed_text = f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas"
+                footer_lines.append(f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas")
             else:
-                speed_text = f"{speed_label} | [-/+] vitesse | [ESPACE] pause"
-            speed_surf = self._font.render(speed_text, True, STATUS_COLOR)
-            screen.blit(speed_surf, (20, self.screen_h - self._font.get_linesize() - 4))
+                footer_lines.append(f"{speed_label} | [-/+] vitesse | [ESPACE] pause")
+
+        if footer_lines:
+            line_h = self._font.get_linesize()
+            pad = 8
+            bandeau_h = line_h * len(footer_lines) + 2 * pad
+            bandeau_rect = pygame.Rect(
+                0, self.screen_h - bandeau_h, self._zones.board.width, bandeau_h
+            )
+            pygame.draw.rect(screen, PANEL, bandeau_rect)
+            pygame.draw.line(
+                screen, SEPARATOR,
+                (bandeau_rect.left, bandeau_rect.top),
+                (bandeau_rect.right, bandeau_rect.top),
+                width=1,
+            )
+            y = bandeau_rect.top + pad
+            for text in footer_lines:
+                surf = self._font.render(text, True, STATUS_COLOR)
+                screen.blit(surf, (20, y))
+                y += line_h
 
         # Boutons
         for btn in self._buttons:
