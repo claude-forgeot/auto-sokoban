@@ -80,10 +80,10 @@ class GameScene(Scene):
         self._game_start_sound_played = False
 
     def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
-        panel_w = 160
         hud_h = 50
-        available_w = screen_w - panel_w - 40
-        available_h = screen_h - hud_h - 20
+        actions_h = max(50, int(60 * screen_h / 600))
+        available_w = screen_w - 40
+        available_h = screen_h - hud_h - actions_h - 20
         cols = self.board.state.width
         rows = self.board.state.height
         adaptive_tile = min(
@@ -95,19 +95,25 @@ class GameScene(Scene):
 
     def _build_layout(self) -> None:
         assert self._font is not None
-        sx = self.screen_w / 800
         sy = self.screen_h / 600
-        btn_w = max(140, int(140 * sx))
+        bar_h = max(50, int(60 * sy))
         btn_h = max(35, int(35 * sy))
-        spacing = max(45, int(45 * sy))
-        x = self.screen_w - btn_w - int(20 * sx)
-        y = max(80, int(80 * sy))
+        margin_x = 10
+        gap = 8
+        n_btn = 5
+        btn_w = max(90, (self.screen_w - 2 * margin_x - (n_btn - 1) * gap) // n_btn)
+        bar_top = self.screen_h - bar_h
+        y = bar_top + (bar_h - btn_h) // 2
+
+        def _bx(i: int) -> int:
+            return margin_x + i * (btn_w + gap)
+
         self._buttons = [
-            Button(pygame.Rect(x, y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font, variant="ghost"),
-            Button(pygame.Rect(x, y + spacing, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font, variant="ghost"),
-            Button(pygame.Rect(x, y + spacing * 2, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font, variant="solve"),
-            Button(pygame.Rect(x, y + spacing * 3, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font, variant="quit"),
-            Button(pygame.Rect(x, y + spacing * 4, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font, variant="quit"),
+            Button(pygame.Rect(_bx(0), y, btn_w, btn_h), "ANNULER", Action.UNDO, font=self._font, variant="ghost"),
+            Button(pygame.Rect(_bx(1), y, btn_w, btn_h), "RÉINIT.", Action.RESET, font=self._font, variant="ghost"),
+            Button(pygame.Rect(_bx(2), y, btn_w, btn_h), "RÉSOUDRE", Action.SOLVE, font=self._font, variant="solve"),
+            Button(pygame.Rect(_bx(3), y, btn_w, btn_h), "ABANDONNER", Action.ABANDON, font=self._font, variant="quit"),
+            Button(pygame.Rect(_bx(4), y, btn_w, btn_h), "QUITTER", Action.BACK_MENU, font=self._font, variant="quit"),
         ]
 
     def on_enter(self) -> None:
@@ -305,13 +311,15 @@ class GameScene(Scene):
             screen.blit(lbl, (col_x, hud_rect.top + 6))
             screen.blit(val, (col_x, hud_rect.top + 6 + lbl.get_height()))
 
-        # Grille centree sur panneau CREAM + bordure OLIVE.
+        # Grille centree sur panneau CREAM + bordure OLIVE (barre actions reservee en bas).
         board_surface = self.renderer.render(self.board.state, facing_left=self._facing_left)
         bw, bh = board_surface.get_size()
-        panel_w = 160
-        available_w = self.screen_w - panel_w
-        gx = (available_w - bw) // 2
-        gy = 50 + (self.screen_h - 50 - bh) // 2
+        sy = self.screen_h / 600
+        actions_bar_h = max(50, int(60 * sy))
+        gx = (self.screen_w - bw) // 2
+        board_area_top = 50
+        board_area_h = self.screen_h - board_area_top - actions_bar_h
+        gy = board_area_top + (board_area_h - bh) // 2
         if self._invalid_move_shake_start:
             elapsed = pygame.time.get_ticks() - self._invalid_move_shake_start
             if elapsed < 200:
@@ -324,7 +332,17 @@ class GameScene(Scene):
         pygame.draw.rect(screen, HUD_BORDER, board_frame, width=2, border_radius=10)
         screen.blit(board_surface, (gx, gy))
 
-        # Boutons (panneau droite)
+        # Barre d'actions PANEL en bas (refonte #244 : remplace le panneau droite).
+        actions_bar = pygame.Rect(
+            0, self.screen_h - actions_bar_h, self.screen_w, actions_bar_h
+        )
+        pygame.draw.rect(screen, HUD_BG, actions_bar)
+        pygame.draw.line(
+            screen, HUD_BORDER,
+            (actions_bar.left, actions_bar.top),
+            (actions_bar.right, actions_bar.top),
+            width=1,
+        )
         for btn in self._buttons:
             btn.draw(screen)
 
