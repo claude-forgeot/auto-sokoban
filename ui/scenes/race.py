@@ -152,7 +152,7 @@ class RaceScene(Scene):
             lane.thread.start()
 
     def handle_events(self) -> None:
-        actions = poll_events(self._buttons)
+        actions = poll_events(self._buttons, audio=self.audio)
         for action in actions:
             if action == Action.QUIT:
                 self._cancel_all()

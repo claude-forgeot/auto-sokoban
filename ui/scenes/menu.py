@@ -126,6 +126,7 @@ class MenuScene(Scene):
         self.manager.switch(
             RankingScene(
                 self.manager,
+                audio=self.audio,
                 screen_w=self.screen_w,
                 screen_h=self.screen_h,
             )

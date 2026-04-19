@@ -5,6 +5,7 @@ from __future__ import annotations
 import pygame
 
 from game.db import ScoreEntry, get_all_ranking, get_ranking
+from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
 from ui.scenes.base import Scene, SceneManager
 
@@ -23,11 +24,13 @@ class RankingScene(Scene):
         self,
         manager: SceneManager,
         level_name: str | None = None,
+        audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
     ) -> None:
         super().__init__(manager)
         self.level_name = level_name
+        self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
         self._entries: list[ScoreEntry] = []
@@ -72,7 +75,7 @@ class RankingScene(Scene):
             self._build_buttons()
 
     def handle_events(self) -> None:
-        actions = poll_events(self._buttons)
+        actions = poll_events(self._buttons, audio=self.audio)
         for action in actions:
             if action in (Action.QUIT, Action.BACK_MENU):
                 from ui.scenes.menu import MenuScene
