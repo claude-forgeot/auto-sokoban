@@ -49,6 +49,7 @@ class Action(Enum):
     CYCLE_TIMEOUT = auto()
     SCROLL_UP = auto()
     SCROLL_DOWN = auto()
+    EXPORT_PDF = auto()
     NOOP = auto()  # placeholder pour boutons routes par rect (onglets)
 
 

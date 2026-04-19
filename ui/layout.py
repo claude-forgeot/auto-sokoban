@@ -104,7 +104,7 @@ def compute_solver_zones(screen_w: int, screen_h: int) -> SolverZones:
     panel_w = max(380, int(screen_w * 0.30))
     btn_h = max(35, int(35 * sy))
     btn_spacing = max(6, int(6 * sy))
-    actions_h = max(5 * (btn_h + btn_spacing) + 16, int(screen_h * 0.35))
+    actions_h = max(6 * (btn_h + btn_spacing) + 16, int(screen_h * 0.35))
     # Vérifier que board_w >= 0
     board_w = max(1, screen_w - panel_w)  # Forcer minimum 1px
     metrics_h = max(1, screen_h - title_h - actions_h)
