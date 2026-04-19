@@ -118,14 +118,13 @@ class SolverScene(Scene):
         self._timelines: dict[str, list[tuple[float, int]]] = {}
 
     def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
-        panel_w = 370
-        header_h = 40
-        available_w = screen_w - panel_w - 20
-        available_h = screen_h - header_h - 60
+        zones = compute_solver_zones(screen_w, screen_h)
+        available_w = zones.board.width - 20
+        available_h = zones.board.height - 20
         cols = self._initial_state.width
         rows = self._initial_state.height
         adaptive_tile = min(
-            self._base_tile_size,
+            self._base_tile_size * 2,  # x2 : permet de grossir à HD
             available_w // max(cols, 1),
             available_h // max(rows, 1),
         )
