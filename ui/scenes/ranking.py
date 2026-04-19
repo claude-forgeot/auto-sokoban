@@ -65,7 +65,9 @@ class RankingScene(Scene):
         from ui.fonts import load_mono, load_serif
         from ui.layout import scale_font_size
         self._font_title = load_serif(scale_font_size(30, self.screen_h), weight="bold")
-        self._font_header = load_serif(scale_font_size(16, self.screen_h), weight="bold")
+        # Header en mono bold pour se distinguer du titre serif du dessus
+        # et aligner le style des colonnes avec les rangees mono (audit #241).
+        self._font_header = load_mono(scale_font_size(16, self.screen_h), bold=True)
         self._font = load_mono(scale_font_size(16, self.screen_h))
         self._font_small = load_mono(scale_font_size(12, self.screen_h))
         self._build_buttons()
