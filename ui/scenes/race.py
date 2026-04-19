@@ -96,7 +96,7 @@ class RaceScene(Scene):
         self._col_w = screen_w // COL_COUNT
         cols = self._initial_state.width
         rows = self._initial_state.height
-        max_tile = min(24, (self._col_w - 20) // max(cols, 1), (screen_h - 200) // max(rows, 1))
+        max_tile = min(36, (self._col_w - 20) // max(cols, 1), (screen_h - 160) // max(rows, 1))
         self._tile_size = max(12, max_tile)
 
     def _build_buttons(self) -> None:
