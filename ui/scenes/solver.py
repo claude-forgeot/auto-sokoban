@@ -133,25 +133,32 @@ class SolverScene(Scene):
 
     def _build_layout(self) -> None:
         assert self._font is not None
-        sx = self.screen_w / BASE_W
+        # Recalcul des zones au cas où on arrive ici après un resize.
+        self._zones = compute_solver_zones(self.screen_w, self.screen_h)
+        a = self._zones.actions
         sy = self.screen_h / BASE_H
-        btn_w = max(140, int(140 * sx))
         btn_h = max(35, int(35 * sy))
-        spacing = max(45, int(45 * sy))
-        x = self.screen_w - btn_w - int(20 * sx)
-        y_base = self.screen_h - max(200, int(200 * sy))
+        btn_spacing = max(6, int(6 * sy))
+        slot_h = btn_h + btn_spacing
+        btn_x = a.left + 10
+        btn_w = a.width - 20
+
+        def _slot_y(idx: int) -> int:
+            # 5 slots empilés : [0]=STOP/TIMEOUT (contextuel), [1..4]=fixes
+            return a.top + 10 + idx * slot_h
+
         self._buttons = [
-            Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
-                    variant="primary"),
-            Button(pygame.Rect(x, y_base + spacing, btn_w, btn_h), "ALGO SUIVANT", Action.SOLVE,
-                   font=self._font, variant="solve"),
-            Button(pygame.Rect(x, y_base + spacing * 2, btn_w, btn_h), "HEATMAP [H]", Action.HEATMAP,
-                   font=self._font, variant="rank"),
-            Button(pygame.Rect(x, y_base + spacing * 3 + int(10 * sy), btn_w, btn_h), "RETOUR MENU",
+            Button(pygame.Rect(btn_x, _slot_y(1), btn_w, btn_h), "REJOUER",
+                   Action.RESET, font=self._font, variant="primary"),
+            Button(pygame.Rect(btn_x, _slot_y(2), btn_w, btn_h), "ALGO SUIVANT",
+                   Action.SOLVE, font=self._font, variant="solve"),
+            Button(pygame.Rect(btn_x, _slot_y(3), btn_w, btn_h), "HEATMAP [H]",
+                   Action.HEATMAP, font=self._font, variant="rank"),
+            Button(pygame.Rect(btn_x, _slot_y(4), btn_w, btn_h), "RETOUR MENU",
                    Action.BACK_MENU, font=self._font, variant="quit"),
         ]
         self._stop_button = Button(
-            pygame.Rect(x, y_base - spacing, btn_w, btn_h),
+            pygame.Rect(btn_x, _slot_y(0), btn_w, btn_h),
             "STOP",
             Action.STOP_SOLVER,
             font=self._font,
@@ -160,7 +167,7 @@ class SolverScene(Scene):
             text_color=(255, 255, 255),
         )
         self._timeout_button = Button(
-            pygame.Rect(x, y_base - spacing * 2, btn_w, btn_h),
+            pygame.Rect(btn_x, _slot_y(0), btn_w, btn_h),
             self._timeout_label(),
             Action.CYCLE_TIMEOUT,
             font=self._font,
