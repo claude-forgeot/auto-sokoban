@@ -10,14 +10,16 @@ from ui.input import Action, Button, poll_events
 from ui.scenes.base import Scene, SceneManager
 
 from ui.colors import (
-    BG_PRIMARY as BG_COLOR,
-    ACCENT_YELLOW as TITLE_COLOR,
-    TEXT_MAIN as TEXT_COLOR,
-    SUCCESS_GREEN as HIGHLIGHT_COLOR,
+    BG as BG_COLOR,
+    SAGE_DARK as TITLE_COLOR,
+    INK as TEXT_COLOR,
+    GOLD as HIGHLIGHT_COLOR,
+    OLIVE as MUTED_COLOR,
+    SAGE,
 )
 
-HEADER_COLOR = (180, 180, 180)
-RANK_COLORS = [(255, 215, 0), (192, 192, 192), (205, 127, 50)]  # or, argent, bronze
+HEADER_COLOR = TEXT_COLOR
+RANK_COLORS = [HIGHLIGHT_COLOR, HIGHLIGHT_COLOR, HIGHLIGHT_COLOR]  # top 3 en gold
 
 
 class RankingScene(Scene):
@@ -40,6 +42,8 @@ class RankingScene(Scene):
 
         self._font: pygame.font.Font | None = None
         self._font_title: pygame.font.Font | None = None
+        self._font_header: pygame.font.Font | None = None
+        self._font_small: pygame.font.Font | None = None
         self._buttons: list[Button] = []
 
     def on_enter(self) -> None:
@@ -52,10 +56,12 @@ class RankingScene(Scene):
             self._entries = get_all_ranking(limit=15)
 
     def _build_layout(self) -> None:
-        from ui.fonts import load_font
+        from ui.fonts import load_mono, load_serif
         from ui.layout import scale_font_size
-        self._font_title = load_font(scale_font_size(28, self.screen_h), bold=True)
-        self._font = load_font(scale_font_size(16, self.screen_h))
+        self._font_title = load_serif(scale_font_size(30, self.screen_h), weight="bold")
+        self._font_header = load_serif(scale_font_size(16, self.screen_h), weight="bold")
+        self._font = load_mono(scale_font_size(16, self.screen_h))
+        self._font_small = load_mono(scale_font_size(12, self.screen_h))
         self._build_buttons()
 
     def _build_buttons(self) -> None:
@@ -71,8 +77,7 @@ class RankingScene(Scene):
                 "RETOUR MENU",
                 Action.BACK_MENU,
                 font=self._font,
-                color=(100, 40, 40),
-                hover_color=(140, 60, 60),
+                variant="quit",
             ),
         ]
 
@@ -90,6 +95,7 @@ class RankingScene(Scene):
 
                 menu = MenuScene(
                     self.manager,
+                    audio=self.audio,
                     screen_w=self.screen_w,
                     screen_h=self.screen_h,
                 )
@@ -102,7 +108,9 @@ class RankingScene(Scene):
     def draw(self, screen: pygame.Surface) -> None:
         screen.fill(BG_COLOR)
         assert self._font_title is not None
+        assert self._font_header is not None
         assert self._font is not None
+        assert self._font_small is not None
 
         # Titre
         if self.level_name:
@@ -115,15 +123,18 @@ class RankingScene(Scene):
         # En-tete du tableau
         y = 80
         header = f"{'#':>3}  {'Joueur':<12} {'Niveau':<15} {'Coups':>6} {'Temps':>8} {'Date':<16}"
-        header_surf = self._font.render(header, True, HEADER_COLOR)
+        header_surf = self._font_header.render(header, True, HEADER_COLOR)
         screen.blit(header_surf, (40, y))
-        y += 5
-        pygame.draw.line(screen, HEADER_COLOR, (40, y + 16), (self.screen_w - 40, y + 16))
-        y += 22
+        header_bottom = y + header_surf.get_height() + 2
+        # Bordure sage 2px sous le header.
+        pygame.draw.line(
+            screen, SAGE, (40, header_bottom), (self.screen_w - 40, header_bottom), width=2
+        )
+        y = header_bottom + 10
 
         # Entrees
         if not self._entries:
-            empty = self._font.render("Aucun score enregistre.", True, TEXT_COLOR)
+            empty = self._font.render("Aucun score enregistre.", True, MUTED_COLOR)
             screen.blit(empty, (self.screen_w // 2 - empty.get_width() // 2, y + 30))
         else:
             for i, entry in enumerate(self._entries):
@@ -137,6 +148,16 @@ class RankingScene(Scene):
                 line_surf = self._font.render(line, True, color)
                 screen.blit(line_surf, (40, y))
                 y += 22
+
+        # Footer source
+        footer = self._font_small.render(
+            "Source : SQLite local (~/.auto-sokoban/scores.db)", True, MUTED_COLOR
+        )
+        btn_top = self._buttons[0].rect.top if self._buttons else self.screen_h - 30
+        screen.blit(
+            footer,
+            (self.screen_w // 2 - footer.get_width() // 2, btn_top - footer.get_height() - 8),
+        )
 
         # Boutons
         for btn in self._buttons:
