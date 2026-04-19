@@ -187,6 +187,13 @@ class RaceScene(Scene):
     def _cancel_all(self) -> None:
         for lane in self._lanes:
             lane.cancel_event.set()
+        # Attendre brievement la prise en compte du cancel : evite de laisser
+        # tourner des threads orphelins qui continueraient a pusher dans une
+        # queue bientot abandonnee (retour menu -> relance d'une course =
+        # threads qui cohabitent et artefacts visuels).
+        for lane in self._lanes:
+            if lane.thread is not None and lane.thread.is_alive():
+                lane.thread.join(timeout=0.5)
 
     def update(self) -> None:
         for lane in self._lanes:
