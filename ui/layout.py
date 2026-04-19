@@ -7,6 +7,8 @@ ecran courante.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pygame
 
 # Resolution de reference utilisee pour definir les layouts des scenes.
@@ -16,6 +18,22 @@ BASE_H = 600
 # Taille minimale acceptee (clamp VIDEORESIZE).
 MIN_W = 640
 MIN_H = 480
+
+
+@dataclass(frozen=True)
+class SolverZones:
+    """Zones nommées disjointes pour SolverScene.
+
+    title  : bande haute (status + nom niveau)
+    board  : zone gauche (plateau Sokoban)
+    metrics: zone droite haute (tableau comparatif + timeline)
+    actions: zone droite basse (boutons empilés)
+    """
+
+    title: pygame.Rect
+    board: pygame.Rect
+    metrics: pygame.Rect
+    actions: pygame.Rect
 
 
 def scale_rect(
@@ -44,3 +62,8 @@ def scale_font_size(base_size: int, current_h: int, base_h: int = BASE_H) -> int
 def clamp_window_size(w: int, h: int) -> tuple[int, int]:
     """Clamp la taille de fenetre au minimum acceptable."""
     return (max(MIN_W, w), max(MIN_H, h))
+
+
+def compute_solver_zones(screen_w: int, screen_h: int) -> SolverZones:
+    """Decoupe l'ecran SolverScene en zones nommees disjointes."""
+    raise NotImplementedError
