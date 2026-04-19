@@ -393,8 +393,24 @@ class SolverScene(Scene):
         if self._all_done:
             metrics_surf = self.metrics.render_comparison(self._results)
             screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
-            timeline_surf = self.metrics.render_timeline(self._timelines, width=panel_w - 20)
-            screen.blit(timeline_surf, (self.screen_w - panel_w, 40 + metrics_surf.get_height() + 6))
+            # La timeline doit eviter la pile de boutons droite. On borne sa
+            # largeur jusqu'au btn_left et sa hauteur jusqu'au btn_top le plus
+            # haut (TIMEOUT depasse la pile REJOUER...). Fix partiel : avec le
+            # layout boutons actuel #230, la timeline reste etroite -- la refonte
+            # globale est suivie dans #230.
+            tl_x = self.screen_w - panel_w
+            tl_y = 40 + metrics_surf.get_height() + 6
+            right_buttons = list(self._buttons)
+            if self._timeout_button is not None:
+                right_buttons.append(self._timeout_button)
+            btn_left = min((b.rect.left for b in right_buttons), default=self.screen_w)
+            btn_top = min((b.rect.top for b in right_buttons), default=self.screen_h)
+            tl_w = max(180, btn_left - tl_x - 10)
+            tl_h = max(80, btn_top - tl_y - 10)
+            timeline_surf = self.metrics.render_timeline(
+                self._timelines, width=tl_w, height=tl_h,
+            )
+            screen.blit(timeline_surf, (tl_x, tl_y))
         elif solver_running:
             metrics_surf = self.metrics.render_progress()
             screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
