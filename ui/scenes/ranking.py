@@ -178,6 +178,12 @@ class RankingScene(Scene):
                 screen.blit(line_surf, (40, y))
                 y += row_h
 
+        # Separateur fin qui rattache le footer source au tableau (caption)
+        # au lieu de le laisser flotter sans encadrement (audit #240).
+        sep_y = footer_y - 6
+        pygame.draw.line(
+            screen, SAGE, (40, sep_y), (self.screen_w - 40, sep_y), width=1
+        )
         screen.blit(
             footer,
             (self.screen_w // 2 - footer.get_width() // 2, footer_y),
