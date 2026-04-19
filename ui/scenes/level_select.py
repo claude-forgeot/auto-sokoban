@@ -540,29 +540,12 @@ class LevelSelectScene(Scene):
         title_y = mode_title_y + self._font_small.get_linesize() + 4
         screen.blit(title, (panel_rect.left + 20, title_y))
 
-        # Apercu grand format. Position calculee depuis la hauteur reelle du
-        # titre (scale_font_size(28) rend un line_h variable) + marge 8px pour
-        # eviter le chevauchement visuel avec la preview.
-        preview_w = panel_rect.width - 40
-        preview_h = 200
-        preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
-        preview_y = title_y + self._font_title.get_linesize() + 8
-        screen.blit(
-            preview_surf,
-            (
-                panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
-                preview_y,
-            ),
-        )
-
-        # Infos niveau.
-        info_y = preview_y + preview_h + 20
+        # Infos niveau (calculees d'abord pour reserver leur hauteur sous la preview).
         info_lines = [
             f"Difficulte : {lvl.difficulty}",
             f"Caisses    : {lvl.box_count}",
             f"Pack       : {lvl.pack}",
         ]
-
         completed = lvl.name in self._completed
         if completed:
             info_lines.append("[OK] Deja termine")
@@ -575,6 +558,27 @@ class LevelSelectScene(Scene):
             info_lines.append("Jamais termine")
 
         info_line_h = self._font_small.get_linesize() + 2
+        info_block_h = len(info_lines) * info_line_h
+
+        # Apercu : remplit l'espace entre titre et bloc infos (elimine le vide
+        # en bas du panneau quand le niveau ne remplissait pas les 200px fixes).
+        preview_w = panel_rect.width - 40
+        preview_y = title_y + self._font_title.get_linesize() + 8
+        bottom_padding = 20
+        preview_h = max(
+            100,
+            panel_rect.bottom - preview_y - info_block_h - 20 - bottom_padding,
+        )
+        preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
+        screen.blit(
+            preview_surf,
+            (
+                panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
+                preview_y,
+            ),
+        )
+
+        info_y = preview_y + preview_h + 20
         for line in info_lines:
             color = COMPLETED_MARK_COLOR if line.startswith("[OK]") else TEXT_COLOR
             surf = self._font_small.render(line, True, color)
