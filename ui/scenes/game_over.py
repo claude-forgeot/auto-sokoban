@@ -9,20 +9,21 @@ import pygame
 from game.board import BoardState
 from game.level import LevelMeta
 from ui.audio import AudioManager
-from ui.fonts import load_font
+from ui.fonts import load_font, load_serif
 from ui.input import Action, Button, poll_events
 from ui.layout import scale_font_size
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
 from ui.colors import (
-    BG_GAME_OVER as BG_COLOR,
-    DANGER_RED_GAME_OVER as TITLE_COLOR,
+    BG as BG_COLOR,
+    TERRACOTTA_DARK as TITLE_COLOR,
+    OLIVE_DARK as PANEL_COLOR,
+    INK as TEXT_COLOR,
+    OLIVE as MUTED_COLOR,
+    SAGE, SAGE_DARK, OLIVE, OLIVE_DARK, BROWN, BROWN_DARK,
 )
 
-PANEL_COLOR = (40, 20, 20)
-TEXT_COLOR = (230, 210, 210)
-MUTED_COLOR = (150, 120, 120)
 FROZEN_OVERLAY = (255, 40, 40, 140)  # rouge semi-transparent
 
 REASON_LABELS = {
@@ -79,7 +80,7 @@ class GameOverScene(Scene):
         self._render_preview()
 
     def _build_layout(self) -> None:
-        self._font_title = load_font(scale_font_size(32, self.screen_h), bold=True)
+        self._font_title = load_serif(scale_font_size(32, self.screen_h), weight="bold")
         self._font_normal = load_font(scale_font_size(18, self.screen_h))
         self._font_small = load_font(scale_font_size(13, self.screen_h))
 
@@ -94,24 +95,24 @@ class GameOverScene(Scene):
                 "REJOUER",
                 Action.RESET,
                 font=self._font_normal,
-                color=(40, 100, 40),
-                hover_color=(60, 140, 60),
+                color=SAGE,
+                hover_color=SAGE_DARK,
             ),
             Button(
                 pygame.Rect(x, y0 + spacing, btn_w, btn_h),
                 "CHOISIR UN NIVEAU",
                 Action.PLAY,
                 font=self._font_normal,
-                color=(40, 60, 100),
-                hover_color=(60, 90, 140),
+                color=OLIVE,
+                hover_color=OLIVE_DARK,
             ),
             Button(
                 pygame.Rect(x, y0 + spacing * 2, btn_w, btn_h),
-                "MENU",
+                "RETOUR AU MENU",
                 Action.BACK_MENU,
                 font=self._font_normal,
-                color=(100, 40, 40),
-                hover_color=(140, 60, 60),
+                color=BROWN,
+                hover_color=BROWN_DARK,
             ),
         ]
 
@@ -166,7 +167,10 @@ class GameOverScene(Scene):
     def _to_menu(self) -> None:
         from ui.scenes.menu import MenuScene
         self.manager.switch(
-            MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
+            MenuScene(
+                self.manager, audio=self.audio,
+                screen_w=self.screen_w, screen_h=self.screen_h,
+            )
         )
 
     def update(self) -> None:
@@ -218,8 +222,8 @@ class GameOverScene(Scene):
             pw, ph = self._preview_surface.get_size()
             px = self.screen_w // 2 - pw // 2
             py = 130
-            # Cadre rouge autour de la preview.
-            pygame.draw.rect(screen, (80, 20, 20), (px - 6, py - 6, pw + 12, ph + 12))
+            # Cadre olive-foncé autour de la preview.
+            pygame.draw.rect(screen, PANEL_COLOR, (px - 6, py - 6, pw + 12, ph + 12))
             screen.blit(self._preview_surface, (px, py))
             self._draw_frozen_overlay(screen, px, py)
 
