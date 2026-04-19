@@ -76,6 +76,8 @@ class BoardState:
 
 class Board:
     """Wrapper mutable autour de BoardState pour le gameplay."""
+    
+    MAX_HISTORY = 5000
 
     def __init__(self, initial: BoardState) -> None:
         self._initial: BoardState = initial
@@ -114,6 +116,11 @@ class Board:
             return True
 
         self._history.append(self._state)
+        
+        # Limiter l'historique
+        if len(self._history) > self.MAX_HISTORY:
+            self._history.pop(0)  # Supprimer le plus ancien
+        
         self._state = BoardState(
             walls=self._state.walls,
             targets=self._state.targets,

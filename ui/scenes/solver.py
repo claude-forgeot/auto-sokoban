@@ -276,10 +276,12 @@ class SolverScene(Scene):
                     self._replay_timer = pygame.time.get_ticks()
                     self._replaying = True
                     self._replay_done = False
+                    if self.audio is not None:
+                        self.audio.play_sfx("move")  # Son de mouvement pour le début du replay
             elif action == Action.SOLVE:
                 # Passer au solveur suivant
                 if solver_running:
-                    continue
+                    return
                 if self._replay_done or not self._replaying:
                     self._current_solver_idx += 1
                     self._run_current_solver()

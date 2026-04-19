@@ -95,14 +95,19 @@ def compute_solver_zones(screen_w: int, screen_h: int) -> SolverZones:
     - panel_w >= 380 (MetricsPanel.width = 380-20 = 360 OK pour comp).
     - board_w >= MIN_W - 380 = 260 (playable).
     """
+    
+    # Ajouter validations
+    if screen_w < MIN_W or screen_h < MIN_H:
+        raise ValueError(f"Screen too small: {screen_w}x{screen_h}, need {MIN_W}x{MIN_H}")
     sy = screen_h / BASE_H
     title_h = max(30, int(40 * sy))
     panel_w = max(380, int(screen_w * 0.30))
     btn_h = max(35, int(35 * sy))
     btn_spacing = max(6, int(6 * sy))
     actions_h = max(5 * (btn_h + btn_spacing) + 16, int(screen_h * 0.35))
-    metrics_h = screen_h - title_h - actions_h
-    board_w = screen_w - panel_w
+    # Vérifier que board_w >= 0
+    board_w = max(1, screen_w - panel_w)  # Forcer minimum 1px
+    metrics_h = max(1, screen_h - title_h - actions_h)
 
     return SolverZones(
         title=pygame.Rect(0, 0, screen_w, title_h),
