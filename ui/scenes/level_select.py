@@ -534,22 +534,26 @@ class LevelSelectScene(Scene):
         # Titre niveau.
         display_name = lvl.pack if lvl.number is None else f"{lvl.pack} {lvl.number:02d}"
         title = self._font_title.render(display_name, True, TITLE_COLOR)
-        screen.blit(title, (panel_rect.left + 20, panel_rect.top + 28))
+        title_y = panel_rect.top + 28
+        screen.blit(title, (panel_rect.left + 20, title_y))
 
-        # Apercu grand format.
+        # Apercu grand format. Position calculee depuis la hauteur reelle du
+        # titre (scale_font_size(28) rend un line_h variable) + marge 8px pour
+        # eviter le chevauchement visuel avec la preview.
         preview_w = panel_rect.width - 40
         preview_h = 200
         preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
+        preview_y = title_y + self._font_title.get_linesize() + 8
         screen.blit(
             preview_surf,
             (
                 panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
-                panel_rect.top + 64,
+                preview_y,
             ),
         )
 
         # Infos niveau.
-        info_y = panel_rect.top + 64 + preview_h + 20
+        info_y = preview_y + preview_h + 20
         info_lines = [
             f"Difficulte : {lvl.difficulty}",
             f"Caisses    : {lvl.box_count}",
