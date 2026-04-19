@@ -525,16 +525,19 @@ class LevelSelectScene(Scene):
         mode_title = self._font_small.render(
             MODE_TITLES.get(self.mode, ""), True, MUTED_COLOR
         )
-        screen.blit(mode_title, (panel_rect.left + 20, panel_rect.top + 8))
+        mode_title_y = panel_rect.top + 8
+        screen.blit(mode_title, (panel_rect.left + 20, mode_title_y))
 
         lvl = self._selected_level()
         if lvl is None:
             return
 
-        # Titre niveau.
+        # Titre niveau -- positionne sous le mode_title reel (le font_small
+        # scale avec screen_h donc un offset fixe +28 creait un chevauchement
+        # en HD ou la hauteur depasse 20px).
         display_name = lvl.pack if lvl.number is None else f"{lvl.pack} {lvl.number:02d}"
         title = self._font_title.render(display_name, True, TITLE_COLOR)
-        title_y = panel_rect.top + 28
+        title_y = mode_title_y + self._font_small.get_linesize() + 4
         screen.blit(title, (panel_rect.left + 20, title_y))
 
         # Apercu grand format. Position calculee depuis la hauteur reelle du
