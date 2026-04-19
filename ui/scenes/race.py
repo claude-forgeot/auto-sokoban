@@ -15,7 +15,7 @@ from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
 from ui.fonts import load_font, load_mono, load_serif
-from ui.layout import scale_font_size
+from ui.layout import BASE_H, BASE_W, compute_race_zones, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
@@ -94,8 +94,6 @@ class RaceScene(Scene):
         self._buttons: list[Button] = []
 
     def _compute_layout(self, screen_w: int, screen_h: int) -> None:
-        from ui.layout import compute_race_zones, BASE_H
-
         self._zones = compute_race_zones(screen_w, screen_h)
 
         sy = screen_h / BASE_H
@@ -113,8 +111,6 @@ class RaceScene(Scene):
         self._tile_size = max(12, max_tile)
 
     def _build_buttons(self) -> None:
-        from ui.layout import BASE_W, BASE_H
-
         assert self._font is not None
         actions = self._zones.actions
         btn_w = max(160, int(160 * self.screen_w / BASE_W))
