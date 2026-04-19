@@ -347,7 +347,7 @@ class LevelSelectScene(Scene):
             from ui.scenes.solver import SolverScene
             self.manager.switch(
                 SolverScene(
-                    self.manager, lvl,
+                    self.manager, lvl, audio=self.audio,
                     screen_w=self.screen_w, screen_h=self.screen_h,
                 )
             )
@@ -355,7 +355,7 @@ class LevelSelectScene(Scene):
             from ui.scenes.race import RaceScene
             self.manager.switch(
                 RaceScene(
-                    self.manager, lvl,
+                    self.manager, lvl, audio=self.audio,
                     screen_w=self.screen_w, screen_h=self.screen_h,
                 )
             )
