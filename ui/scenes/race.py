@@ -10,7 +10,7 @@ import pygame
 
 from game.level import LevelMeta, load_level
 from solver.a_star import AStar
-from solver.base import Solver, SolverProgress, SolverResult
+from solver.base import DEFAULT_TIMEOUT_MS, Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
@@ -66,6 +66,7 @@ class RaceScene(Scene):
         audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
+        timeout_ms: int | None = DEFAULT_TIMEOUT_MS,
     ) -> None:
         super().__init__(manager)
         self.level_meta = level_meta
@@ -74,6 +75,7 @@ class RaceScene(Scene):
         self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self._timeout_ms = timeout_ms
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
@@ -161,7 +163,13 @@ class RaceScene(Scene):
             lane.cancel_event = threading.Event()
             lane.thread = threading.Thread(
                 target=lane.solver.solve_async,
-                args=(initial, self.level_meta.name, lane.progress_queue, lane.cancel_event),
+                args=(
+                    initial,
+                    self.level_meta.name,
+                    lane.progress_queue,
+                    lane.cancel_event,
+                    self._timeout_ms,
+                ),
                 daemon=True,
             )
             lane.thread.start()
