@@ -16,16 +16,23 @@ from solver.base import DEFAULT_TIMEOUT_MS, Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
-from ui.fonts import load_font
-from ui.layout import BASE_H, BASE_W, scale_font_size
+from ui.fonts import load_font, load_mono, load_serif
+from ui.layout import BASE_H, BASE_W, SolverZones, compute_solver_zones, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TEXT_COLOR = (220, 220, 220)
-STATUS_COLOR = (255, 220, 80)
+from ui.colors import (
+    BG as BG_COLOR,
+    INK as TEXT_COLOR,
+    GOLD as STATUS_COLOR,
+    SEPARATOR,
+    PANEL,
+    OLIVE,
+    TERRACOTTA,
+    TERRACOTTA_DARK,
+)
 
 REPLAY_SPEEDS = [
     ("0.25x", 1200),
@@ -38,6 +45,13 @@ DEFAULT_SPEED_IDX = 2  # 1x
 
 TIMEOUT_OPTIONS_MS = [30_000, 60_000, 180_000]
 DEFAULT_TIMEOUT_IDX = TIMEOUT_OPTIONS_MS.index(DEFAULT_TIMEOUT_MS)
+
+# Meme garde-fou que RaceScene : borner le drain de la queue par frame
+# sinon le thread principal ne rend jamais la main a pygame.event.get().
+MAX_PROGRESS_DRAIN_PER_FRAME = 200
+# Limite souple des points de timeline par algo : decimation 1 sur 2 au-dela
+# pour conserver la courbe complete sans saturer memoire et rendu.
+MAX_TIMELINE_POINTS = 500
 
 
 class SolverScene(Scene):
@@ -59,6 +73,7 @@ class SolverScene(Scene):
         self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self._zones: SolverZones = compute_solver_zones(screen_w, screen_h)
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
@@ -69,7 +84,7 @@ class SolverScene(Scene):
             variant=self._variant,
         )
         self.metrics = MetricsPanel(
-            width=max(350, int(350 * screen_w / BASE_W)),
+            width=self._zones.metrics.width - 20,
             font_size=scale_font_size(16, screen_h),
         )
 
@@ -110,14 +125,13 @@ class SolverScene(Scene):
         self._timelines: dict[str, list[tuple[float, int]]] = {}
 
     def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
-        panel_w = 370
-        header_h = 40
-        available_w = screen_w - panel_w - 20
-        available_h = screen_h - header_h - 60
+        zones = compute_solver_zones(screen_w, screen_h)
+        available_w = zones.board.width - 20
+        available_h = zones.board.height - 20
         cols = self._initial_state.width
         rows = self._initial_state.height
         adaptive_tile = min(
-            self._base_tile_size,
+            self._base_tile_size * 2,  # x2 : permet de grossir à HD
             available_w // max(cols, 1),
             available_h // max(rows, 1),
         )
@@ -125,38 +139,45 @@ class SolverScene(Scene):
 
     def _build_layout(self) -> None:
         assert self._font is not None
-        sx = self.screen_w / BASE_W
+        # Recalcul des zones au cas où on arrive ici après un resize.
+        self._zones = compute_solver_zones(self.screen_w, self.screen_h)
+        a = self._zones.actions
         sy = self.screen_h / BASE_H
-        btn_w = max(140, int(140 * sx))
         btn_h = max(35, int(35 * sy))
-        spacing = max(45, int(45 * sy))
-        x = self.screen_w - btn_w - int(20 * sx)
-        y_base = self.screen_h - max(200, int(200 * sy))
+        btn_spacing = max(6, int(6 * sy))
+        slot_h = btn_h + btn_spacing
+        btn_x = a.left + 10
+        btn_w = a.width - 20
+
+        def _slot_y(idx: int) -> int:
+            # 5 slots empilés : [0]=STOP/TIMEOUT (contextuel), [1..4]=fixes
+            return a.top + 10 + idx * slot_h
+
         self._buttons = [
-            Button(pygame.Rect(x, y_base, btn_w, btn_h), "REJOUER", Action.RESET, font=self._font,
-                    color=(40, 100, 40), hover_color=(60, 140, 60)),
-            Button(pygame.Rect(x, y_base + spacing, btn_w, btn_h), "ALGO SUIVANT", Action.SOLVE,
-                   font=self._font, color=(40, 40, 100), hover_color=(60, 60, 140)),
-            Button(pygame.Rect(x, y_base + spacing * 2, btn_w, btn_h), "HEATMAP [H]", Action.HEATMAP,
-                   font=self._font, color=(80, 60, 20), hover_color=(120, 90, 30)),
-            Button(pygame.Rect(x, y_base + spacing * 3 + int(10 * sy), btn_w, btn_h), "RETOUR MENU",
-                   Action.BACK_MENU, font=self._font, color=(100, 40, 40), hover_color=(140, 60, 60)),
+            Button(pygame.Rect(btn_x, _slot_y(1), btn_w, btn_h), "REJOUER",
+                   Action.RESET, font=self._font, variant="primary"),
+            Button(pygame.Rect(btn_x, _slot_y(2), btn_w, btn_h), "ALGO SUIVANT",
+                   Action.SOLVE, font=self._font, variant="solve"),
+            Button(pygame.Rect(btn_x, _slot_y(3), btn_w, btn_h), "HEATMAP [H]",
+                   Action.HEATMAP, font=self._font, variant="rank"),
+            Button(pygame.Rect(btn_x, _slot_y(4), btn_w, btn_h), "RETOUR MENU",
+                   Action.BACK_MENU, font=self._font, variant="quit"),
         ]
         self._stop_button = Button(
-            pygame.Rect(x, y_base - spacing, btn_w, btn_h),
+            pygame.Rect(btn_x, _slot_y(0), btn_w, btn_h),
             "STOP",
             Action.STOP_SOLVER,
             font=self._font,
-            color=(160, 30, 30),
-            hover_color=(200, 50, 50),
+            color=TERRACOTTA,
+            shadow_color=TERRACOTTA_DARK,
+            text_color=(255, 255, 255),
         )
         self._timeout_button = Button(
-            pygame.Rect(x, y_base - spacing * 2, btn_w, btn_h),
+            pygame.Rect(btn_x, _slot_y(0), btn_w, btn_h),
             self._timeout_label(),
             Action.CYCLE_TIMEOUT,
             font=self._font,
-            color=(60, 60, 80),
-            hover_color=(90, 90, 120),
+            variant="ghost",
         )
 
     def _timeout_label(self) -> str:
@@ -173,7 +194,7 @@ class SolverScene(Scene):
         self._build_layout()
 
         if self.audio is not None:
-            self.audio.play_game_start()
+            self.audio.play_music("game_start", loops=0)
 
         self._run_current_solver()
 
@@ -242,6 +263,7 @@ class SolverScene(Scene):
                 from ui.scenes.menu import MenuScene
                 menu = MenuScene(
                     self.manager,
+                    audio=self.audio,
                     screen_w=self.screen_w,
                     screen_h=self.screen_h,
                 )
@@ -280,8 +302,10 @@ class SolverScene(Scene):
 
     def update(self) -> None:
         """Met à jour l'état du replay automatique."""
-        # Poller les messages de progression du solveur
-        while not self._progress_queue.empty():
+        # Poller les messages de progression du solveur (drain borne : meme
+        # raisonnement que RaceScene, evite le freeze de la fenetre quand
+        # le thread solveur inonde la queue plus vite qu'on ne draine).
+        for _ in range(MAX_PROGRESS_DRAIN_PER_FRAME):
             try:
                 progress = self._progress_queue.get_nowait()
             except queue.Empty:
@@ -295,6 +319,10 @@ class SolverScene(Scene):
             if algo not in self._timelines:
                 self._timelines[algo] = []
             self._timelines[algo].append((progress.elapsed_ms, progress.nodes_explored))
+            if len(self._timelines[algo]) > MAX_TIMELINE_POINTS:
+                # Decimation 1/2 : conserve la courbe complete (debut + fin)
+                # au prix d'une resolution temporelle divisee par 2.
+                self._timelines[algo] = self._timelines[algo][::2]
 
             if progress.finished and progress.result is not None:
                 self._current_result = progress.result
@@ -374,65 +402,97 @@ class SolverScene(Scene):
             deadlock_overlay = self.renderer.render_deadlock_overlay(state)
             board_surface.blit(deadlock_overlay, (0, 0))
         bw, bh = board_surface.get_size()
-        panel_w = 370
-        available_w = self.screen_w - panel_w
-        gx = (available_w - bw) // 2
-        gy = 40 + (self.screen_h - 40 - bh) // 2
-        screen.blit(board_surface, (max(10, gx), max(40, gy)))
+        bz = self._zones.board
+        gx = bz.left + (bz.width - bw) // 2
+        gy = bz.top + (bz.height - bh) // 2
+        screen.blit(board_surface, (max(bz.left + 10, gx), max(bz.top, gy)))
 
-        # Panneau metriques (droite)
+        # Panneau métriques (zone droite haute des zones nommées)
         solver_running = self._solver_thread is not None and self._solver_thread.is_alive()
+        m = self._zones.metrics
         if self._all_done:
             metrics_surf = self.metrics.render_comparison(self._results)
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
-            timeline_surf = self.metrics.render_timeline(self._timelines, width=panel_w - 20)
-            screen.blit(timeline_surf, (self.screen_w - panel_w, 40 + metrics_surf.get_height() + 6))
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
+            comp_h = metrics_surf.get_height()
+            # Timeline remplit la hauteur restante dans zones.metrics
+            # (zones disjointes => jamais sous les boutons actions).
+            # Skip si espace < 40px : a MIN_H=480 le tableau comparatif
+            # remplit deja toute la zone, la timeline serait illisible.
+            tl_h_avail = m.height - 10 - comp_h - 6 - 10
+            if tl_h_avail >= 40:
+                timeline_surf = self.metrics.render_timeline(
+                    self._timelines, width=m.width - 20, height=tl_h_avail,
+                )
+                screen.blit(timeline_surf, (m.left + 10, m.top + 10 + comp_h + 6))
         elif solver_running:
             metrics_surf = self.metrics.render_progress()
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
         else:
             metrics_surf = self.metrics.render()
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
 
-        # Status
+        # Status + speed : regroupes dans un bandeau footer PANEL en bas du plateau
+        # pour les relier visuellement au reste de l'UI (audit 2026-04-19 #235).
+        footer_lines: list[str] = []
         if self._solver_thread is not None and self._solver_thread.is_alive():
             algo = self._solvers[self._current_solver_idx].name
             if self._stopped:
-                status = f"[{algo}] Arrêt en cours..."
+                footer_lines.append(f"[{algo}] Arrêt en cours...")
             else:
-                status = f"[{algo}] Résolution en cours..."
-            status_surf = self._font.render(status, True, STATUS_COLOR)
-            screen.blit(status_surf, (20, self.screen_h - 40))
+                footer_lines.append(f"[{algo}] Résolution en cours...")
         elif self._current_result:
             algo = self._current_result.algo_name
             reason = self._current_result.stop_reason
             if self._replaying:
-                status = f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
+                footer_lines.append(
+                    f"[{algo}] Replay : pas {self._replay_step + 1}/{len(self._current_result.steps)}"
+                )
             elif self._all_done:
-                status = "Tous les algorithmes terminés - Comparaison finale"
+                footer_lines.append("Tous les algorithmes terminés - Comparaison finale")
             elif reason == "user_cancelled":
-                status = f"[{algo}] Résolution stoppée"
+                footer_lines.append(f"[{algo}] Résolution stoppée")
             elif reason == "timeout":
                 timeout_s = TIMEOUT_OPTIONS_MS[self._timeout_idx] // 1000
-                status = f"[{algo}] Timeout atteint ({timeout_s}s) - Pas de solution"
+                footer_lines.append(f"[{algo}] Timeout atteint ({timeout_s}s) - Pas de solution")
             elif self._replay_done:
-                status = f"[{algo}] Terminé - Appuyez sur ALGO SUIVANT"
+                footer_lines.append(f"[{algo}] Terminé - Appuyez sur ALGO SUIVANT")
             elif not self._current_result.found:
-                status = f"[{algo}] Pas de solution trouvée"
+                footer_lines.append(f"[{algo}] Pas de solution trouvée")
             else:
-                status = f"[{algo}] En cours..."
-            status_surf = self._font.render(status, True, STATUS_COLOR)
-            screen.blit(status_surf, (20, self.screen_h - 40))
+                footer_lines.append(f"[{algo}] En cours...")
 
-        # Indicateur vitesse / pause : pertinent uniquement pendant le replay.
         if self._replaying:
             speed_label = REPLAY_SPEEDS[self._speed_idx][0]
             if self._paused:
-                speed_text = f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas"
+                footer_lines.append(f"PAUSE | {speed_label} | [-/+] vitesse | [</>] pas")
             else:
-                speed_text = f"{speed_label} | [-/+] vitesse | [ESPACE] pause"
-            speed_surf = self._font.render(speed_text, True, STATUS_COLOR)
-            screen.blit(speed_surf, (20, self.screen_h - 20))
+                footer_lines.append(f"{speed_label} | [-/+] vitesse | [ESPACE] pause")
+
+        if footer_lines:
+            line_h = self._font.get_linesize()
+            pad = 8
+            bandeau_h = line_h * len(footer_lines) + 2 * pad
+            bandeau_rect = pygame.Rect(
+                0, self.screen_h - bandeau_h, self._zones.board.width, bandeau_h
+            )
+            pygame.draw.rect(screen, PANEL, bandeau_rect)
+            pygame.draw.line(
+                screen, SEPARATOR,
+                (bandeau_rect.left, bandeau_rect.top),
+                (bandeau_rect.right, bandeau_rect.top),
+                width=1,
+            )
+            y = bandeau_rect.top + pad
+            for text in footer_lines:
+                surf = self._font.render(text, True, STATUS_COLOR)
+                # Status final "comparaison finale" centre pour equilibrer le
+                # bandeau quand il ne contient qu'une ligne isolee (audit #236).
+                if self._all_done and text.startswith("Tous les algorithmes"):
+                    x = bandeau_rect.centerx - surf.get_width() // 2
+                else:
+                    x = 20
+                screen.blit(surf, (x, y))
+                y += line_h
 
         # Boutons
         for btn in self._buttons:

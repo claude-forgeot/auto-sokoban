@@ -16,9 +16,14 @@ class BFS(Solver):
 
     name = "BFS"
 
-    def solve(self, initial: BoardState, level_name: str = "") -> SolverResult:
+    def solve(
+        self,
+        initial: BoardState,
+        level_name: str = "",
+        max_nodes: int | None = None,
+    ) -> SolverResult:
         with timer() as t:
-            result = self._search(initial, level_name)
+            result = self._search(initial, level_name, max_nodes)
         return SolverResult(
             found=result[0],
             steps=result[1],
@@ -30,7 +35,10 @@ class BFS(Solver):
         )
 
     def _search(
-        self, initial: BoardState, level_name: str
+        self,
+        initial: BoardState,
+        level_name: str,
+        max_nodes: int | None = None,
     ) -> tuple[bool, tuple[SolverStep, ...], int]:
         if initial.is_won():
             return True, (), 0
@@ -44,6 +52,9 @@ class BFS(Solver):
         while queue:
             state, path = queue.popleft()
             nodes_explored += 1
+
+            if max_nodes is not None and nodes_explored > max_nodes:
+                return False, (), nodes_explored
 
             for direction in Direction:
                 new_state = self.apply_move(state, direction)

@@ -63,8 +63,18 @@ class Solver(ABC):
     name: str
 
     @abstractmethod
-    def solve(self, initial: BoardState, level_name: str = "") -> SolverResult:
-        """Resout le niveau depuis l'etat initial."""
+    def solve(
+        self,
+        initial: BoardState,
+        level_name: str = "",
+        max_nodes: int | None = None,
+    ) -> SolverResult:
+        """Resout le niveau depuis l'etat initial.
+
+        max_nodes : plafond optionnel du nombre de noeuds explores,
+        None = pas de limite. Protection pour les callers hors UI
+        (tests, scripts) qui ne passent pas par solve_async.
+        """
         ...
 
     @staticmethod

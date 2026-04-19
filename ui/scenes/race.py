@@ -10,26 +10,33 @@ import pygame
 
 from game.level import LevelMeta, load_level
 from solver.a_star import AStar
-from solver.base import Solver, SolverProgress, SolverResult
+from solver.base import DEFAULT_TIMEOUT_MS, Solver, SolverProgress, SolverResult
 from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
-from ui.fonts import load_font
-from ui.layout import scale_font_size
+from ui.fonts import load_font, load_mono, load_serif
+from ui.layout import BASE_H, BASE_W, compute_race_zones, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TEXT_COLOR = (220, 220, 220)
-HEADER_COLOR = (100, 180, 255)
-STATUS_COLOR = (255, 220, 80)
-DONE_COLOR = (100, 255, 120)
-SEPARATOR_COLOR = (60, 60, 80)
+from ui.colors import (
+    BG as BG_COLOR,
+    INK as TEXT_COLOR,
+    SAGE_DARK as HEADER_COLOR,
+    GOLD as STATUS_COLOR,
+    SAGE as DONE_COLOR,
+    SEPARATOR as SEPARATOR_COLOR,
+    TERRACOTTA as DANGER_RED,
+)
 
 REPLAY_DELAY_MS = 250
 COL_COUNT = 3
+# Drain borne par frame pour eviter que le producteur (thread solver,
+# _report_progress toutes les 50 iterations) n'inonde la main loop et fige
+# la fenetre en l'empechant de traiter ses events systeme.
+MAX_PROGRESS_DRAIN_PER_FRAME = 200
 
 
 @dataclass
@@ -59,6 +66,7 @@ class RaceScene(Scene):
         audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
+        timeout_ms: int | None = DEFAULT_TIMEOUT_MS,
     ) -> None:
         super().__init__(manager)
         self.level_meta = level_meta
@@ -67,11 +75,10 @@ class RaceScene(Scene):
         self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self._timeout_ms = timeout_ms
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
-        self._header_h = 55
-        self._board_y = self._header_h
         self._variant = hash(level_meta.name) % 3
         self._compute_layout(screen_w, screen_h)
         self._renderers = [Renderer(tile_size=self._tile_size, variant=self._variant) for _ in range(COL_COUNT)]
@@ -84,7 +91,7 @@ class RaceScene(Scene):
         self._finish_counter = 0
         self._all_done = False
         self._metrics = MetricsPanel(
-            width=self._col_w - 10,
+            width=self._zones.comparatif.width - 20,
             font_size=scale_font_size(16, self.screen_h),
         )
 
@@ -93,23 +100,33 @@ class RaceScene(Scene):
         self._buttons: list[Button] = []
 
     def _compute_layout(self, screen_w: int, screen_h: int) -> None:
-        self._col_w = screen_w // COL_COUNT
+        self._zones = compute_race_zones(screen_w, screen_h)
+
+        sy = screen_h / BASE_H
+        self._lane_w = self._zones.lanes.width // 3
+        self._header_h = max(32, int(32 * sy))
+        self._stats_h = max(90, int(90 * sy))
+        self._board_h = self._zones.lanes.height - self._header_h - self._stats_h
+
         cols = self._initial_state.width
         rows = self._initial_state.height
-        max_tile = min(24, (self._col_w - 20) // max(cols, 1), (screen_h - 200) // max(rows, 1))
+        max_tile = min(
+            (self._lane_w - 20) // max(cols, 1),
+            self._board_h // max(rows, 1),
+        )
         self._tile_size = max(12, max_tile)
 
     def _build_buttons(self) -> None:
         assert self._font is not None
-        sy = self.screen_h / 600
-        btn_w = max(160, int(160 * self.screen_w / 800))
-        btn_h = max(32, int(32 * sy))
-        x = self.screen_w // 2 - btn_w // 2
-        y = self.screen_h - max(40, int(40 * sy))
+        actions = self._zones.actions
+        btn_w = max(160, int(160 * self.screen_w / BASE_W))
+        btn_h = max(32, int(32 * self.screen_h / BASE_H))
+        x = actions.centerx - btn_w // 2
+        y = actions.centery - btn_h // 2
         self._buttons = [
             Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
                     Action.BACK_MENU, font=self._font,
-                    color=(100, 40, 40), hover_color=(140, 60, 60)),
+                    variant="quit"),
         ]
 
     def on_enter(self) -> None:
@@ -118,7 +135,7 @@ class RaceScene(Scene):
         self._build_buttons()
 
         if self.audio is not None:
-            self.audio.play_race_start()
+            self.audio.play_music("race", loops=-1)
 
         self._start_race()
 
@@ -131,7 +148,7 @@ class RaceScene(Scene):
             for _ in range(COL_COUNT)
         ]
         self._metrics = MetricsPanel(
-            width=self._col_w - 10,
+            width=self._zones.comparatif.width - 20,
             font_size=scale_font_size(16, self.screen_h),
         )
         if self._font is not None:
@@ -146,13 +163,19 @@ class RaceScene(Scene):
             lane.cancel_event = threading.Event()
             lane.thread = threading.Thread(
                 target=lane.solver.solve_async,
-                args=(initial, self.level_meta.name, lane.progress_queue, lane.cancel_event),
+                args=(
+                    initial,
+                    self.level_meta.name,
+                    lane.progress_queue,
+                    lane.cancel_event,
+                    self._timeout_ms,
+                ),
                 daemon=True,
             )
             lane.thread.start()
 
     def handle_events(self) -> None:
-        actions = poll_events(self._buttons)
+        actions = poll_events(self._buttons, audio=self.audio)
         for action in actions:
             if action == Action.QUIT:
                 self._cancel_all()
@@ -164,17 +187,25 @@ class RaceScene(Scene):
                     self.audio.return_to_menu()
                 from ui.scenes.menu import MenuScene
                 self.manager.switch(MenuScene(
-                    self.manager, screen_w=self.screen_w, screen_h=self.screen_h,
+                    self.manager, audio=self.audio,
+                    screen_w=self.screen_w, screen_h=self.screen_h,
                 ))
                 return
 
     def _cancel_all(self) -> None:
         for lane in self._lanes:
             lane.cancel_event.set()
+        # Attendre brievement la prise en compte du cancel : evite de laisser
+        # tourner des threads orphelins qui continueraient a pusher dans une
+        # queue bientot abandonnee (retour menu -> relance d'une course =
+        # threads qui cohabitent et artefacts visuels).
+        for lane in self._lanes:
+            if lane.thread is not None and lane.thread.is_alive():
+                lane.thread.join(timeout=0.5)
 
     def update(self) -> None:
         for lane in self._lanes:
-            while not lane.progress_queue.empty():
+            for _ in range(MAX_PROGRESS_DRAIN_PER_FRAME):
                 try:
                     progress = lane.progress_queue.get_nowait()
                 except queue.Empty:
@@ -210,52 +241,59 @@ class RaceScene(Scene):
         assert self._font is not None
         assert self._font_small is not None
 
-        # Titre
+        zones = self._zones
+
+        # Zone title : nom niveau centré
         title = f"Course : {self.level_meta.name}"
         title_surf = self._font.render(title, True, TEXT_COLOR)
-        screen.blit(title_surf, (self.screen_w // 2 - title_surf.get_width() // 2, 4))
+        tx = zones.title.centerx - title_surf.get_width() // 2
+        ty = zones.title.top + max(4, (zones.title.height - title_surf.get_height()) // 2)
+        screen.blit(title_surf, (tx, ty))
 
+        # Zone lanes : 3 sous-zones fixes par lane (header/board/stats)
         for i, lane in enumerate(self._lanes):
-            x = i * self._col_w
-            y = 24
+            lane_x = zones.lanes.left + i * self._lane_w
 
-            # Separateur vertical
             if i > 0:
-                pygame.draw.line(screen, SEPARATOR_COLOR, (x, 24), (x, self.screen_h - 50))
+                pygame.draw.line(
+                    screen, SEPARATOR_COLOR,
+                    (lane_x, zones.lanes.top),
+                    (lane_x, zones.lanes.bottom),
+                )
 
-            # Nom algo
+            header_top = zones.lanes.top
             algo_name = lane.solver.name
             color = DONE_COLOR if lane.done else HEADER_COLOR
             name_surf = self._font.render(algo_name, True, color)
-            screen.blit(name_surf, (x + self._col_w // 2 - name_surf.get_width() // 2, y))
-
-            # Ordre d'arrivée
+            screen.blit(name_surf, (
+                lane_x + self._lane_w // 2 - name_surf.get_width() // 2,
+                header_top + 4,
+            ))
             if lane.done and lane.finish_order > 0:
                 order_text = f"#{lane.finish_order}"
-                order_surf = self._font_small.render(order_text, True, DONE_COLOR)
-                screen.blit(order_surf, (x + self._col_w - 30, y + 2))
+                order_surf = self._font.render(order_text, True, DONE_COLOR)
+                screen.blit(order_surf, (
+                    lane_x + self._lane_w - order_surf.get_width() - 8,
+                    header_top + 4,
+                ))
 
-            y = self._header_h
-
-            # Plateau
+            board_top = zones.lanes.top + self._header_h
             if lane.result and lane.result.found and lane.result.steps:
                 step_idx = min(lane.replay_step, len(lane.result.steps) - 1)
                 state = lane.result.steps[step_idx].state_snapshot
             else:
                 state = self._initial_state
-
             board_surf = self._renderers[i].render(state)
             bw, bh = board_surf.get_size()
-            bx = x + (self._col_w - bw) // 2
-            screen.blit(board_surf, (bx, y))
+            bx = lane_x + (self._lane_w - bw) // 2
+            by = board_top + max(0, (self._board_h - bh) // 2)
+            screen.blit(board_surf, (bx, by))
 
-            y += bh + 6
-
-            # Compteurs live
+            stats_top = zones.lanes.top + self._header_h + self._board_h
             if lane.done and lane.result:
                 r = lane.result
                 status = "Résolu" if r.found else "Échec"
-                status_color = DONE_COLOR if r.found else (255, 100, 100)
+                status_color = DONE_COLOR if r.found else DANGER_RED
                 lines = [
                     (f"{status}", status_color),
                     (f"Coups  : {r.solution_length}", TEXT_COLOR),
@@ -275,25 +313,17 @@ class RaceScene(Scene):
                 lines = [("Démarrage...", STATUS_COLOR)]
 
             line_h = self._font_small.get_linesize()
-            for text, color in lines:
+            for idx, (text, color) in enumerate(lines):
                 rendered = self._font_small.render(text, True, color)
-                screen.blit(rendered, (x + 8, y))
-                y += line_h
+                screen.blit(rendered, (lane_x + 8, stats_top + 4 + idx * line_h))
 
-        # Tableau comparatif final
-        if self._all_done:
-            results = [lane.result for lane in self._lanes if lane.result is not None]
-            if results:
-                comp_surf = self._metrics.render_comparison(results)
-                cw, ch = comp_surf.get_size()
-                comp_y = self.screen_h - 50 - ch
-                # Masque toute la bande horizontale sous les lanes pour eviter
-                # le chevauchement visuel avec les stats/replay des lanes.
-                band = pygame.Rect(0, comp_y - 8, self.screen_w, ch + 16)
-                pygame.draw.rect(screen, BG_COLOR, band)
-                pygame.draw.rect(screen, SEPARATOR_COLOR, band, width=1)
-                screen.blit(comp_surf, (self.screen_w // 2 - cw // 2, comp_y))
+        # Zone comparatif : tableau live (affiché en permanence)
+        comp_surf = self._metrics.render_comparison_live(self._lanes)
+        cw, ch = comp_surf.get_size()
+        cx = zones.comparatif.left + max(10, (zones.comparatif.width - cw) // 2)
+        cy = zones.comparatif.top + max(5, (zones.comparatif.height - ch) // 2)
+        screen.blit(comp_surf, (cx, cy))
 
-        # Boutons
+        # Zone actions : boutons
         for btn in self._buttons:
             btn.draw(screen)

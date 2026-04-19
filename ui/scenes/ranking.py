@@ -5,15 +5,27 @@ from __future__ import annotations
 import pygame
 
 from game.db import ScoreEntry, get_all_ranking, get_ranking
+from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TITLE_COLOR = (255, 220, 80)
-TEXT_COLOR = (220, 220, 220)
-HEADER_COLOR = (180, 180, 180)
-HIGHLIGHT_COLOR = (100, 255, 120)
-RANK_COLORS = [(255, 215, 0), (192, 192, 192), (205, 127, 50)]  # or, argent, bronze
+from ui.colors import (
+    BG as BG_COLOR,
+    SAGE_DARK as TITLE_COLOR,
+    INK as TEXT_COLOR,
+    OLIVE as MUTED_COLOR,
+    SAGE,
+    PANEL,
+)
+
+HEADER_COLOR = TEXT_COLOR
+
+
+def _fit(text: str, width: int) -> str:
+    """Tronque avec ellipsis si trop long, sinon pad à droite pour aligner les colonnes."""
+    if len(text) > width:
+        return text[: width - 1] + "\u2026"
+    return text.ljust(width)
 
 
 class RankingScene(Scene):
@@ -23,45 +35,57 @@ class RankingScene(Scene):
         self,
         manager: SceneManager,
         level_name: str | None = None,
+        audio: AudioManager | None = None,
         screen_w: int = 800,
         screen_h: int = 600,
     ) -> None:
         super().__init__(manager)
         self.level_name = level_name
+        self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
         self._entries: list[ScoreEntry] = []
 
         self._font: pygame.font.Font | None = None
         self._font_title: pygame.font.Font | None = None
+        self._font_header: pygame.font.Font | None = None
+        self._font_small: pygame.font.Font | None = None
         self._buttons: list[Button] = []
 
     def on_enter(self) -> None:
         pygame.font.init()
-        from ui.fonts import load_font
-        from ui.layout import scale_font_size
-        self._font_title = load_font(scale_font_size(28, self.screen_h), bold=True)
-        self._font = load_font(scale_font_size(16, self.screen_h))
+        self._build_layout()
 
         if self.level_name:
             self._entries = get_ranking(self.level_name, limit=10)
         else:
             self._entries = get_all_ranking(limit=15)
 
+    def _build_layout(self) -> None:
+        from ui.fonts import load_mono, load_serif
+        from ui.layout import scale_font_size
+        self._font_title = load_serif(scale_font_size(30, self.screen_h), weight="bold")
+        # Header en mono bold pour se distinguer du titre serif du dessus
+        # et aligner le style des colonnes avec les rangees mono (audit #241).
+        self._font_header = load_mono(scale_font_size(16, self.screen_h), bold=True)
+        self._font = load_mono(scale_font_size(16, self.screen_h))
+        self._font_small = load_mono(scale_font_size(12, self.screen_h))
         self._build_buttons()
 
     def _build_buttons(self) -> None:
+        from ui.layout import scale_font_size
         assert self._font is not None
-        btn_w, btn_h = 180, 35
+        btn_w = min(260, max(180, self.screen_w // 3))
+        btn_h = max(35, scale_font_size(40, self.screen_h))
+        margin_bottom = max(60, scale_font_size(60, self.screen_h))
         x = self.screen_w // 2 - btn_w // 2
         self._buttons = [
             Button(
-                pygame.Rect(x, self.screen_h - 60, btn_w, btn_h),
+                pygame.Rect(x, self.screen_h - margin_bottom, btn_w, btn_h),
                 "RETOUR MENU",
                 Action.BACK_MENU,
                 font=self._font,
-                color=(100, 40, 40),
-                hover_color=(140, 60, 60),
+                variant="quit",
             ),
         ]
 
@@ -69,16 +93,17 @@ class RankingScene(Scene):
         self.screen_w = new_w
         self.screen_h = new_h
         if self._font is not None:
-            self._build_buttons()
+            self._build_layout()
 
     def handle_events(self) -> None:
-        actions = poll_events(self._buttons)
+        actions = poll_events(self._buttons, audio=self.audio)
         for action in actions:
             if action in (Action.QUIT, Action.BACK_MENU):
                 from ui.scenes.menu import MenuScene
 
                 menu = MenuScene(
                     self.manager,
+                    audio=self.audio,
                     screen_w=self.screen_w,
                     screen_h=self.screen_h,
                 )
@@ -91,7 +116,9 @@ class RankingScene(Scene):
     def draw(self, screen: pygame.Surface) -> None:
         screen.fill(BG_COLOR)
         assert self._font_title is not None
+        assert self._font_header is not None
         assert self._font is not None
+        assert self._font_small is not None
 
         # Titre
         if self.level_name:
@@ -104,28 +131,65 @@ class RankingScene(Scene):
         # En-tete du tableau
         y = 80
         header = f"{'#':>3}  {'Joueur':<12} {'Niveau':<15} {'Coups':>6} {'Temps':>8} {'Date':<16}"
-        header_surf = self._font.render(header, True, HEADER_COLOR)
+        header_surf = self._font_header.render(header, True, HEADER_COLOR)
         screen.blit(header_surf, (40, y))
-        y += 5
-        pygame.draw.line(screen, HEADER_COLOR, (40, y + 16), (self.screen_w - 40, y + 16))
-        y += 22
+        header_bottom = y + header_surf.get_height() + 2
+        # Bordure sage 2px sous le header.
+        pygame.draw.line(
+            screen, SAGE, (40, header_bottom), (self.screen_w - 40, header_bottom), width=2
+        )
+        list_top = header_bottom + 10
 
-        # Entrees
+        # Footer source (pre-rendu pour calculer la zone disponible de la liste).
+        footer = self._font_small.render(
+            "Source : SQLite local (~/.auto-sokoban/scores.db)", True, MUTED_COLOR
+        )
+        btn_top = self._buttons[0].rect.top if self._buttons else self.screen_h - 30
+        footer_y = btn_top - footer.get_height() - 8
+        list_bottom_max = footer_y - 8
+
+        # Entrees : centrees verticalement dans la zone dispo si elles ne la remplissent pas.
+        row_h = self._font.get_linesize()
+        available = max(0, list_bottom_max - list_top)
         if not self._entries:
-            empty = self._font.render("Aucun score enregistre.", True, TEXT_COLOR)
-            screen.blit(empty, (self.screen_w // 2 - empty.get_width() // 2, y + 30))
+            empty = self._font.render("Aucun score enregistre.", True, MUTED_COLOR)
+            cx = self.screen_w // 2 - empty.get_width() // 2
+            cy = list_top + max(0, (available - empty.get_height()) // 2)
+            screen.blit(empty, (cx, cy))
         else:
+            entries_height = row_h * len(self._entries)
+            if entries_height < available:
+                y = list_top + (available - entries_height) // 2
+            else:
+                y = list_top
             for i, entry in enumerate(self._entries):
                 rank = i + 1
                 mins, secs = divmod(int(entry.time_s), 60)
-                color = RANK_COLORS[i] if i < 3 else TEXT_COLOR
+                player = _fit(entry.player, 12)
+                level = _fit(entry.level, 15)
                 line = (
-                    f"{rank:>3}  {entry.player:<12} {entry.level:<15} "
+                    f"{rank:>3}  {player} {level} "
                     f"{entry.moves:>6} {mins:02d}:{secs:02d}   {entry.date:<16}"
                 )
-                line_surf = self._font.render(line, True, color)
+                if i % 2 == 1:
+                    pygame.draw.rect(
+                        screen, PANEL,
+                        pygame.Rect(32, y - 2, self.screen_w - 64, row_h),
+                    )
+                line_surf = self._font.render(line, True, TEXT_COLOR)
                 screen.blit(line_surf, (40, y))
-                y += 22
+                y += row_h
+
+        # Separateur fin qui rattache le footer source au tableau (caption)
+        # au lieu de le laisser flotter sans encadrement (audit #240).
+        sep_y = footer_y - 6
+        pygame.draw.line(
+            screen, SAGE, (40, sep_y), (self.screen_w - 40, sep_y), width=1
+        )
+        screen.blit(
+            footer,
+            (self.screen_w // 2 - footer.get_width() // 2, footer_y),
+        )
 
         # Boutons
         for btn in self._buttons:

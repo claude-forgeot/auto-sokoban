@@ -1,6 +1,12 @@
 """Point d'entree du jeu Auto-Sokoban."""
 
+import logging
 import os
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(name)s: %(message)s",
+)
 
 # Centrer la fenetre au lancement plutot que laisser le WM (GNOME/tiling)
 # la placer/maximiser automatiquement. Doit etre defini avant pygame.init().
@@ -8,6 +14,7 @@ os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
 
 import pygame
 
+from ui.audio import AudioManager
 from ui.layout import BASE_H, BASE_W, clamp_window_size
 from ui.scenes.base import SceneManager
 from ui.scenes.menu import MenuScene
@@ -21,8 +28,11 @@ def main() -> None:
     pygame.display.set_caption("Auto-Sokoban")
     clock = pygame.time.Clock()
 
+    audio = AudioManager()
+    audio.load()
+
     manager = SceneManager()
-    menu = MenuScene(manager, screen_w=BASE_W, screen_h=BASE_H)
+    menu = MenuScene(manager, audio=audio, screen_w=BASE_W, screen_h=BASE_H)
     manager.switch(menu)
 
     current_w, current_h = BASE_W, BASE_H

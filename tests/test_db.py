@@ -10,6 +10,7 @@ def tmp_db(tmp_path, monkeypatch):
     """Redirige _DB_PATH vers une BDD temporaire isolee."""
     path = tmp_path / "test_scores.db"
     monkeypatch.setattr(db, "_DB_PATH", path)
+    monkeypatch.setattr(db, "_LEGACY_DB_PATH", tmp_path / "nonexistent_legacy.db")
     return path
 
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
-_DB_PATH = Path(__file__).resolve().parent.parent / "scores.db"
+_DB_PATH = Path.home() / ".auto-sokoban" / "scores.db"
+_LEGACY_DB_PATH = Path(__file__).resolve().parent.parent / "scores.db"
 
 
 @dataclass(frozen=True)
@@ -21,7 +23,16 @@ class ScoreEntry:
     date: str
 
 
+def _migrate_legacy_db() -> None:
+    if _DB_PATH.exists() or not _LEGACY_DB_PATH.exists():
+        return
+    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(_LEGACY_DB_PATH, _DB_PATH)
+
+
 def _connect() -> sqlite3.Connection:
+    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_db()
     conn = sqlite3.connect(str(_DB_PATH))
     conn.execute(
         """CREATE TABLE IF NOT EXISTS scores (

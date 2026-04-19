@@ -18,23 +18,30 @@ import pygame
 from game.db import get_best_for_level, get_completed_levels
 from game.level import LevelMeta, list_levels, load_level
 from ui.audio import AudioManager
-from ui.fonts import load_font
+from ui.fonts import load_font, load_mono, load_serif
 from ui.input import Action, Button, poll_events
 from ui.layout import BASE_H, BASE_W, scale_font_size
 from ui.renderer import Renderer
 from ui.scenes import Mode
 from ui.scenes.base import Scene, SceneManager
 
-# Couleurs
-BG_COLOR = (25, 25, 35)
-PANEL_COLOR = (35, 35, 50)
-TITLE_COLOR = (255, 220, 80)
-TEXT_COLOR = (220, 220, 220)
-MUTED_COLOR = (120, 120, 120)
-TAB_ACTIVE_COLOR = (60, 60, 100)
-TAB_INACTIVE_COLOR = (40, 40, 50)
-HIGHLIGHT_BORDER = (100, 180, 255)
-COMPLETED_MARK_COLOR = (80, 220, 120)
+from ui.colors import (
+    BG as BG_COLOR,
+    SAGE_DARK as TITLE_COLOR,
+    INK as TEXT_COLOR,
+    OLIVE as MUTED_COLOR,
+    TERRACOTTA as HIGHLIGHT_BORDER,
+    SEPARATOR,
+    PANEL as PANEL_COLOR,
+    CREAM,
+    SAGE,
+    OLIVE_DARK,
+)
+
+TAB_ACTIVE_COLOR = SAGE
+TAB_INACTIVE_COLOR = CREAM
+COMPLETED_MARK_COLOR = SAGE
+PENDING_STATUS_COLOR = OLIVE_DARK
 
 # Dimensions layout (800x600)
 TAB_BAR_H = 50
@@ -53,13 +60,13 @@ DIFFICULTIES = ("facile", "moyen", "difficile")
 
 MODE_TITLES = {
     Mode.PLAY: "CHOISIR UN NIVEAU",
-    Mode.SOLVE: "CHOISIR NIVEAU A RESOUDRE",
+    Mode.SOLVE: "CHOISIR NIVEAU À RÉSOUDRE",
     Mode.RACE: "CHOISIR NIVEAU POUR COURSE",
 }
 
 MODE_LAUNCH_LABELS = {
     Mode.PLAY: "LANCER",
-    Mode.SOLVE: "RESOUDRE",
+    Mode.SOLVE: "RÉSOUDRE",
     Mode.RACE: "LANCER COURSE",
 }
 
@@ -70,11 +77,11 @@ class LevelSelectScene(Scene):
     def __init__(
         self,
         manager: SceneManager,
+        audio: AudioManager,
         mode: Mode = Mode.PLAY,
         screen_w: int = 800,
         screen_h: int = 600,
         levels_dir: str | Path | None = None,
-        audio: AudioManager | None = None,
     ) -> None:
         super().__init__(manager)
         self.mode = mode
@@ -94,7 +101,7 @@ class LevelSelectScene(Scene):
         self._selected_in_tab: dict[str, int] = {d: 0 for d in DIFFICULTIES}
         self._scroll_offset = 0
 
-        self.audio = audio if audio is not None else AudioManager()
+        self.audio = audio
 
         # Donnees BDD (chargees en on_enter).
         self._completed: set[str] = set()
@@ -124,17 +131,20 @@ class LevelSelectScene(Scene):
 
         self._build_layout()
         self._load_thumbnails()
-        self.audio.load()
 
     def on_resize(self, new_w: int, new_h: int) -> None:
         self.screen_w = new_w
         self.screen_h = new_h
         self._build_layout()
+        # Cle du LRU = (path, w, h) ; chaque resize change (w, h) pour la preview
+        # et pollue le cache avec d'anciennes tailles devenues inutiles.
+        _render_thumbnail.cache_clear()
+        self._load_thumbnails()
 
     def _build_layout(self) -> None:
-        self._font_title = load_font(scale_font_size(22, self.screen_h), bold=True)
+        self._font_title = load_serif(scale_font_size(28, self.screen_h), weight="bold")
         self._font_normal = load_font(scale_font_size(16, self.screen_h))
-        self._font_small = load_font(scale_font_size(12, self.screen_h))
+        self._font_small = load_mono(scale_font_size(12, self.screen_h))
         self._build_tab_buttons()
         self._build_action_buttons()
 
@@ -164,8 +174,14 @@ class LevelSelectScene(Scene):
             count = len(self.levels_by_difficulty[diff])
             label = f"{diff.upper()} ({count})"
             active = i == self._active_difficulty_idx
-            color = TAB_ACTIVE_COLOR if active else TAB_INACTIVE_COLOR
-            hover = (min(color[0] + 25, 255), min(color[1] + 25, 255), min(color[2] + 25, 255))
+            if active:
+                color = TAB_ACTIVE_COLOR
+                shadow = OLIVE_DARK
+                text = (255, 255, 255)
+            else:
+                color = TAB_INACTIVE_COLOR
+                shadow = MUTED_COLOR
+                text = TEXT_COLOR
             self._tab_buttons.append(
                 Button(
                     pygame.Rect(i * tab_w, 0, tab_w, tab_h),
@@ -173,7 +189,8 @@ class LevelSelectScene(Scene):
                     Action.NOOP,
                     font=self._font_normal,
                     color=color,
-                    hover_color=hover,
+                    shadow_color=shadow,
+                    text_color=text,
                 )
             )
 
@@ -189,16 +206,14 @@ class LevelSelectScene(Scene):
                 "RETOUR",
                 Action.BACK_MENU,
                 font=self._font_normal,
-                color=(100, 40, 40),
-                hover_color=(140, 60, 60),
+                variant="quit",
             ),
             Button(
                 pygame.Rect(self.screen_w - margin - btn_w, y, btn_w, btn_h),
                 MODE_LAUNCH_LABELS[self.mode],
                 Action.PLAY,
                 font=self._font_normal,
-                color=(40, 100, 40),
-                hover_color=(60, 140, 60),
+                variant="primary",
             ),
         ]
 
@@ -347,7 +362,7 @@ class LevelSelectScene(Scene):
             from ui.scenes.solver import SolverScene
             self.manager.switch(
                 SolverScene(
-                    self.manager, lvl,
+                    self.manager, lvl, audio=self.audio,
                     screen_w=self.screen_w, screen_h=self.screen_h,
                 )
             )
@@ -355,7 +370,7 @@ class LevelSelectScene(Scene):
             from ui.scenes.race import RaceScene
             self.manager.switch(
                 RaceScene(
-                    self.manager, lvl,
+                    self.manager, lvl, audio=self.audio,
                     screen_w=self.screen_w, screen_h=self.screen_h,
                 )
             )
@@ -363,7 +378,10 @@ class LevelSelectScene(Scene):
     def _back_to_menu(self) -> None:
         from ui.scenes.menu import MenuScene
         self.manager.switch(
-            MenuScene(self.manager, screen_w=self.screen_w, screen_h=self.screen_h)
+            MenuScene(
+                self.manager, audio=self.audio,
+                screen_w=self.screen_w, screen_h=self.screen_h,
+            )
         )
 
     def update(self) -> None:
@@ -443,7 +461,7 @@ class LevelSelectScene(Scene):
                     thumb = pygame.transform.scale(thumb, (thumb_w, thumb_h))
                 screen.blit(thumb, (cx, cy))
             else:
-                pygame.draw.rect(screen, (60, 60, 80), (cx, cy, thumb_w, thumb_h))
+                pygame.draw.rect(screen, SEPARATOR, (cx, cy, thumb_w, thumb_h))
 
             if lvl.name in self._completed:
                 mark_surf = self._font_small.render("[OK]", True, COMPLETED_MARK_COLOR)
@@ -481,7 +499,7 @@ class LevelSelectScene(Scene):
         track_w = 6
         track_x = panel_rect.right - track_w - 2
         track_rect = pygame.Rect(track_x, panel_rect.top + 4, track_w, panel_rect.height - 8)
-        pygame.draw.rect(screen, (50, 50, 65), track_rect, border_radius=3)
+        pygame.draw.rect(screen, CREAM, track_rect, border_radius=3)
 
         ratio = panel_rect.height / content_h
         thumb_h = max(20, int(track_rect.height * ratio))
@@ -502,7 +520,7 @@ class LevelSelectScene(Scene):
         )
         pygame.draw.rect(screen, PANEL_COLOR, panel_rect)
         pygame.draw.line(
-            screen, (60, 60, 80),
+            screen, SEPARATOR,
             (panel_rect.left, panel_rect.top),
             (panel_rect.left, panel_rect.bottom),
             width=1,
@@ -512,37 +530,27 @@ class LevelSelectScene(Scene):
         mode_title = self._font_small.render(
             MODE_TITLES.get(self.mode, ""), True, MUTED_COLOR
         )
-        screen.blit(mode_title, (panel_rect.left + 20, panel_rect.top + 8))
+        mode_title_y = panel_rect.top + 8
+        screen.blit(mode_title, (panel_rect.left + 20, mode_title_y))
 
         lvl = self._selected_level()
         if lvl is None:
             return
 
-        # Titre niveau.
+        # Titre niveau -- positionne sous le mode_title reel (le font_small
+        # scale avec screen_h donc un offset fixe +28 creait un chevauchement
+        # en HD ou la hauteur depasse 20px).
         display_name = lvl.pack if lvl.number is None else f"{lvl.pack} {lvl.number:02d}"
         title = self._font_title.render(display_name, True, TITLE_COLOR)
-        screen.blit(title, (panel_rect.left + 20, panel_rect.top + 28))
+        title_y = mode_title_y + self._font_small.get_linesize() + 4
+        screen.blit(title, (panel_rect.left + 20, title_y))
 
-        # Apercu grand format.
-        preview_w = panel_rect.width - 40
-        preview_h = 200
-        preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
-        screen.blit(
-            preview_surf,
-            (
-                panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
-                panel_rect.top + 64,
-            ),
-        )
-
-        # Infos niveau.
-        info_y = panel_rect.top + 64 + preview_h + 20
+        # Infos niveau (calculees d'abord pour reserver leur hauteur sous la preview).
         info_lines = [
             f"Difficulte : {lvl.difficulty}",
             f"Caisses    : {lvl.box_count}",
             f"Pack       : {lvl.pack}",
         ]
-
         completed = lvl.name in self._completed
         if completed:
             info_lines.append("[OK] Deja termine")
@@ -554,11 +562,38 @@ class LevelSelectScene(Scene):
         else:
             info_lines.append("Jamais termine")
 
+        info_line_h = self._font_small.get_linesize() + 2
+        info_block_h = len(info_lines) * info_line_h
+
+        # Apercu : remplit l'espace entre titre et bloc infos (elimine le vide
+        # en bas du panneau quand le niveau ne remplissait pas les 200px fixes).
+        preview_w = panel_rect.width - 40
+        preview_y = title_y + self._font_title.get_linesize() + 8
+        bottom_padding = 20
+        preview_h = max(
+            100,
+            panel_rect.bottom - preview_y - info_block_h - 20 - bottom_padding,
+        )
+        preview_surf = _render_thumbnail(lvl.path, preview_w, preview_h)
+        screen.blit(
+            preview_surf,
+            (
+                panel_rect.left + (panel_rect.width - preview_surf.get_width()) // 2,
+                preview_y,
+            ),
+        )
+
+        info_y = preview_y + preview_h + 20
         for line in info_lines:
-            color = COMPLETED_MARK_COLOR if line.startswith("[OK]") else TEXT_COLOR
+            if line.startswith("[OK]"):
+                color = COMPLETED_MARK_COLOR
+            elif line == "Jamais termine":
+                color = PENDING_STATUS_COLOR
+            else:
+                color = TEXT_COLOR
             surf = self._font_small.render(line, True, color)
             screen.blit(surf, (panel_rect.left + 20, info_y))
-            info_y += 18
+            info_y += info_line_h
 
     def _draw_actions(self, screen: pygame.Surface) -> None:
         bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)
@@ -590,4 +625,6 @@ def _render_thumbnail(path: Path, width: int, height: int) -> pygame.Surface:
     state = board.state
     tile = max(4, min(width // max(state.width, 1), height // max(state.height, 1)))
     renderer = Renderer(tile_size=tile)
-    return renderer.render(state)
+    # .convert() aligne le format pixel sur le display : blit rapide, une
+    # seule conversion lors du rendu plutot qu'a chaque frame.
+    return renderer.render(state).convert()

@@ -30,9 +30,14 @@ class AStar(Solver):
 
     name = "A*"
 
-    def solve(self, initial: BoardState, level_name: str = "") -> SolverResult:
+    def solve(
+        self,
+        initial: BoardState,
+        level_name: str = "",
+        max_nodes: int | None = None,
+    ) -> SolverResult:
         with timer() as t:
-            result = self._search(initial)
+            result = self._search(initial, max_nodes)
         return SolverResult(
             found=result[0],
             steps=result[1],
@@ -44,7 +49,9 @@ class AStar(Solver):
         )
 
     def _search(
-        self, initial: BoardState
+        self,
+        initial: BoardState,
+        max_nodes: int | None = None,
     ) -> tuple[bool, tuple[SolverStep, ...], int]:
         if initial.is_won():
             return True, (), 0
@@ -65,6 +72,9 @@ class AStar(Solver):
                 continue
 
             nodes_explored += 1
+
+            if max_nodes is not None and nodes_explored > max_nodes:
+                return False, (), nodes_explored
 
             for direction in Direction:
                 new_state = self.apply_move(state, direction)
