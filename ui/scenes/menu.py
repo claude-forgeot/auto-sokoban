@@ -19,9 +19,9 @@ MUTED_COLOR = (120, 120, 120)
 
 
 class MenuScene(Scene):
-    """Menu principal : 5 boutons (JOUER, RESOUDRE, COURSE, CLASSEMENT, QUITTER).
+    """Menu principal : 5 boutons (JOUER, RÉSOUDRE, COURSE, CLASSEMENT, QUITTER).
 
-    La selection du niveau est deleguee a LevelSelectScene, atteinte via les
+    La sélection du niveau est déléguée à LevelSelectScene, atteinte via les
     actions PLAY / SOLVE / RACE.
     """
 
@@ -64,7 +64,7 @@ class MenuScene(Scene):
 
         specs = [
             ("JOUER", Action.PLAY, (40, 100, 40), (60, 140, 60)),
-            ("RESOUDRE AUTO", Action.SOLVE, (40, 40, 100), (60, 60, 140)),
+            ("RÉSOUDRE AUTO", Action.SOLVE, (40, 40, 100), (60, 60, 140)),
             ("COURSE ALGO", Action.RACE, (80, 40, 100), (120, 60, 140)),
             ("CLASSEMENT", Action.RANKING, (80, 60, 20), (120, 90, 30)),
             ("QUITTER", Action.QUIT, (100, 40, 40), (140, 60, 60)),

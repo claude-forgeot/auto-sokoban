@@ -53,13 +53,13 @@ DIFFICULTIES = ("facile", "moyen", "difficile")
 
 MODE_TITLES = {
     Mode.PLAY: "CHOISIR UN NIVEAU",
-    Mode.SOLVE: "CHOISIR NIVEAU A RESOUDRE",
+    Mode.SOLVE: "CHOISIR NIVEAU À RÉSOUDRE",
     Mode.RACE: "CHOISIR NIVEAU POUR COURSE",
 }
 
 MODE_LAUNCH_LABELS = {
     Mode.PLAY: "LANCER",
-    Mode.SOLVE: "RESOUDRE",
+    Mode.SOLVE: "RÉSOUDRE",
     Mode.RACE: "LANCER COURSE",
 }
 

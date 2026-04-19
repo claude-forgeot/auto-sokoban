@@ -23,8 +23,8 @@ MUTED_COLOR = (150, 120, 120)
 FROZEN_OVERLAY = (255, 40, 40, 140)  # rouge semi-transparent
 
 REASON_LABELS = {
-    "deadlock": "Deadlock detecte : une caisse ne peut plus bouger.",
-    "abandon": "Partie abandonnee.",
+    "deadlock": "Deadlock détecté : une caisse ne peut plus bouger.",
+    "abandon": "Partie abandonnée.",
 }
 
 
