@@ -130,14 +130,30 @@ class RankingScene(Scene):
         pygame.draw.line(
             screen, SAGE, (40, header_bottom), (self.screen_w - 40, header_bottom), width=2
         )
-        y = header_bottom + 10
+        list_top = header_bottom + 10
 
-        # Entrees
+        # Footer source (pre-rendu pour calculer la zone disponible de la liste).
+        footer = self._font_small.render(
+            "Source : SQLite local (~/.auto-sokoban/scores.db)", True, MUTED_COLOR
+        )
+        btn_top = self._buttons[0].rect.top if self._buttons else self.screen_h - 30
+        footer_y = btn_top - footer.get_height() - 8
+        list_bottom_max = footer_y - 8
+
+        # Entrees : centrees verticalement dans la zone dispo si elles ne la remplissent pas.
+        row_h = self._font.get_linesize()
+        available = max(0, list_bottom_max - list_top)
         if not self._entries:
             empty = self._font.render("Aucun score enregistre.", True, MUTED_COLOR)
-            screen.blit(empty, (self.screen_w // 2 - empty.get_width() // 2, y + 30))
+            cx = self.screen_w // 2 - empty.get_width() // 2
+            cy = list_top + max(0, (available - empty.get_height()) // 2)
+            screen.blit(empty, (cx, cy))
         else:
-            row_h = self._font.get_linesize()
+            entries_height = row_h * len(self._entries)
+            if entries_height < available:
+                y = list_top + (available - entries_height) // 2
+            else:
+                y = list_top
             for i, entry in enumerate(self._entries):
                 rank = i + 1
                 mins, secs = divmod(int(entry.time_s), 60)
@@ -150,14 +166,9 @@ class RankingScene(Scene):
                 screen.blit(line_surf, (40, y))
                 y += row_h
 
-        # Footer source
-        footer = self._font_small.render(
-            "Source : SQLite local (~/.auto-sokoban/scores.db)", True, MUTED_COLOR
-        )
-        btn_top = self._buttons[0].rect.top if self._buttons else self.screen_h - 30
         screen.blit(
             footer,
-            (self.screen_w // 2 - footer.get_width() // 2, btn_top - footer.get_height() - 8),
+            (self.screen_w // 2 - footer.get_width() // 2, footer_y),
         )
 
         # Boutons
