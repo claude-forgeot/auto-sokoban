@@ -472,7 +472,13 @@ class SolverScene(Scene):
             y = bandeau_rect.top + pad
             for text in footer_lines:
                 surf = self._font.render(text, True, STATUS_COLOR)
-                screen.blit(surf, (20, y))
+                # Status final "comparaison finale" centre pour equilibrer le
+                # bandeau quand il ne contient qu'une ligne isolee (audit #236).
+                if self._all_done and text.startswith("Tous les algorithmes"):
+                    x = bandeau_rect.centerx - surf.get_width() // 2
+                else:
+                    x = 20
+                screen.blit(surf, (x, y))
                 y += line_h
 
         # Boutons
