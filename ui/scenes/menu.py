@@ -81,10 +81,6 @@ class MenuScene(Scene):
         self._font_normal = load_font(scale_font_size(16, self.screen_h))
         self._font_small = load_font(scale_font_size(13, self.screen_h))
 
-        btn_w = min(260, max(200, self.screen_w // 3))
-        btn_h = max(36, scale_font_size(40, self.screen_h))
-        spacing = btn_h + 14
-
         specs = [
             ("JOUER", Action.PLAY, "primary"),
             ("RÉSOUDRE AUTO", Action.SOLVE, "solve"),
@@ -92,6 +88,13 @@ class MenuScene(Scene):
             ("CLASSEMENT", Action.RANKING, "rank"),
             ("QUITTER", Action.QUIT, "quit"),
         ]
+
+        padding_x = scale_font_size(24, self.screen_h)
+        max_label_w = max(self._font_normal.size(label)[0] for label, _, _ in specs)
+        btn_w = max(scale_font_size(200, self.screen_h), max_label_w + padding_x * 2)
+        btn_w = min(btn_w, self.screen_w - scale_font_size(80, self.screen_h))
+        btn_h = max(36, scale_font_size(40, self.screen_h))
+        spacing = btn_h + 14
 
         total_h = len(specs) * spacing - (spacing - btn_h)
         start_y = max(

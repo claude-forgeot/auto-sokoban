@@ -567,11 +567,12 @@ class LevelSelectScene(Scene):
         else:
             info_lines.append("Jamais termine")
 
+        info_line_h = self._font_small.get_linesize() + 2
         for line in info_lines:
             color = COMPLETED_MARK_COLOR if line.startswith("[OK]") else TEXT_COLOR
             surf = self._font_small.render(line, True, color)
             screen.blit(surf, (panel_rect.left + 20, info_y))
-            info_y += 18
+            info_y += info_line_h
 
     def _draw_actions(self, screen: pygame.Surface) -> None:
         bar_h = self._scaled(ACTIONS_BAR_H, vertical=True)

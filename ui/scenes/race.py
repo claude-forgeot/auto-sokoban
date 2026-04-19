@@ -99,7 +99,13 @@ class RaceScene(Scene):
         self._col_w = screen_w // COL_COUNT
         cols = self._initial_state.width
         rows = self._initial_state.height
-        max_tile = min(36, (self._col_w - 20) // max(cols, 1), (screen_h - 160) // max(rows, 1))
+        # Reserve verticalement : header (55) + compteurs (~6 lignes) + tableau
+        # comparatif (~30% de l'ecran) + boutons (50). Le cap 36 etait absolu et
+        # gaspillait l'espace en grand ecran.
+        tile_cap = max(36, scale_font_size(36, screen_h))
+        reserved_v = 55 + scale_font_size(160, screen_h) + int(screen_h * 0.30)
+        avail_h = max(rows * 12, screen_h - reserved_v)
+        max_tile = min(tile_cap, (self._col_w - 20) // max(cols, 1), avail_h // max(rows, 1))
         self._tile_size = max(12, max_tile)
 
     def _build_buttons(self) -> None:

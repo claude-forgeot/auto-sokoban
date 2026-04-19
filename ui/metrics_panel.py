@@ -89,7 +89,7 @@ class MetricsPanel:
     def render_progress(self) -> pygame.Surface:
         """Retourne une Surface avec les compteurs live pendant le calcul."""
         font = self._get_font()
-        line_h = self.font_size + 4
+        line_h = font.get_linesize()
         height = line_h * 8
         surface = pygame.Surface((self.width, height))
         surface.fill(COLOR_BG)
@@ -188,8 +188,8 @@ class MetricsPanel:
     def render_comparison(self, results: list[SolverResult]) -> pygame.Surface:
         """Retourne une Surface avec le tableau comparatif + barres proportionnelles."""
         font = self._get_font()
-        line_h = self.font_size + 6
-        bar_h = 12
+        line_h = font.get_linesize() + 4
+        bar_h = max(12, font.get_height() // 2)
         bar_section_h = (bar_h + line_h) * len(results) + line_h
         table_h = line_h * (len(results) + 2)
         height = table_h + bar_section_h + 10
@@ -249,7 +249,13 @@ class MetricsPanel:
             (font.render(f"{r.time_ms:.0f}ms", True, COLOR_TEXT).get_width() for r in results),
             default=0,
         )
-        bar_max_w = max(20, self.width - 80 - max_label_w - 10)
+        # Offset des barres calcule depuis la largeur reelle des noms d'algos
+        # (sinon les noms en grande font chevauchent les barres).
+        name_w = max(font.size(f"{r.algo_name:<4}")[0] for r in results)
+        bar_x = 10 + name_w + 10
+        bar_max_w = max(20, self.width - bar_x - max_label_w - 20)
+        bar_y_offset = max(2, (font.get_height() - bar_h) // 2)
+        label_y_offset = max(0, (bar_h - font.get_height()) // 2)
 
         for r in results:
             ratio = r.time_ms / max_time
@@ -263,21 +269,23 @@ class MetricsPanel:
 
             name_surf = font.render(f"{r.algo_name:<4}", True, COLOR_TEXT)
             surface.blit(name_surf, (10, y))
-            pygame.draw.rect(surface, bar_color, (60, y + 2, bar_w, bar_h), border_radius=2)
+            pygame.draw.rect(surface, bar_color, (bar_x, y + bar_y_offset, bar_w, bar_h), border_radius=2)
 
             time_label = font.render(f"{r.time_ms:.0f}ms", True, COLOR_TEXT)
-            surface.blit(time_label, (65 + bar_w, y))
+            surface.blit(time_label, (bar_x + bar_w + 5, y + label_y_offset))
             y += bar_h + line_h
 
         return surface
 
     def render_timeline(
-        self, timelines: dict[str, list[tuple[float, int]]], width: int = 0, height: int = 160,
+        self, timelines: dict[str, list[tuple[float, int]]], width: int = 0, height: int = 0,
     ) -> pygame.Surface:
         """Retourne une Surface avec le graphe temps vs noeuds par algo."""
         w = width or self.width
         font = self._get_font()
-        surface = pygame.Surface((w, height))
+        line_h = font.get_linesize()
+        h = height or max(160, line_h * 5 + 60)
+        surface = pygame.Surface((w, h))
         surface.fill(COLOR_BG)
 
         if not timelines:
@@ -287,13 +295,14 @@ class MetricsPanel:
         title = font.render("Noeuds / Temps", True, COLOR_HEADER)
         surface.blit(title, (10, 2))
 
-        # Zone graphe
-        margin_left = 50
+        # Zone graphe : margins adaptes a la font scalee
+        margin_left = max(50, font.size("0000")[0] + 10)
         margin_right = 10
-        margin_top = 22
-        margin_bottom = 20
+        # Reserve la hauteur du titre + ligne legende au-dessus du graphe.
+        margin_top = line_h * 2 + 8
+        margin_bottom = max(20, line_h + 4)
         gw = w - margin_left - margin_right
-        gh = height - margin_top - margin_bottom
+        gh = h - margin_top - margin_bottom
 
         # Axes
         pygame.draw.line(surface, COLOR_SEPARATOR, (margin_left, margin_top), (margin_left, margin_top + gh))
@@ -326,15 +335,17 @@ class MetricsPanel:
                 screen_points.append((sx, sy))
             pygame.draw.lines(surface, color, False, screen_points, 2)
 
-        # Legende
+        # Legende : placee sous le titre, sur sa propre ligne
         lx = margin_left + 4
-        ly = margin_top + 2
+        ly = line_h + 4
         for algo_name in timelines:
             color = algo_colors.get(algo_name, default_color)
-            pygame.draw.line(surface, color, (lx, ly + 6), (lx + 14, ly + 6), 2)
+            pygame.draw.line(
+                surface, color, (lx, ly + line_h // 2), (lx + 14, ly + line_h // 2), 2
+            )
             label = font.render(algo_name, True, color)
             surface.blit(label, (lx + 18, ly))
-            lx += 60
+            lx += 18 + label.get_width() + 16
 
         # Labels axes
         time_label = font.render(f"{max_time:.0f}ms", True, COLOR_TEXT)

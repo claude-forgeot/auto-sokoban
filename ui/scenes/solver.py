@@ -410,7 +410,8 @@ class SolverScene(Scene):
             else:
                 status = f"[{algo}] Résolution en cours..."
             status_surf = self._font.render(status, True, STATUS_COLOR)
-            screen.blit(status_surf, (20, self.screen_h - 40))
+            line_h = self._font.get_linesize()
+            screen.blit(status_surf, (20, self.screen_h - line_h * 2 - 8))
         elif self._current_result:
             algo = self._current_result.algo_name
             reason = self._current_result.stop_reason
@@ -430,7 +431,8 @@ class SolverScene(Scene):
             else:
                 status = f"[{algo}] En cours..."
             status_surf = self._font.render(status, True, STATUS_COLOR)
-            screen.blit(status_surf, (20, self.screen_h - 40))
+            line_h = self._font.get_linesize()
+            screen.blit(status_surf, (20, self.screen_h - line_h * 2 - 8))
 
         # Indicateur vitesse / pause : pertinent uniquement pendant le replay.
         if self._replaying:
@@ -440,7 +442,7 @@ class SolverScene(Scene):
             else:
                 speed_text = f"{speed_label} | [-/+] vitesse | [ESPACE] pause"
             speed_surf = self._font.render(speed_text, True, STATUS_COLOR)
-            screen.blit(speed_surf, (20, self.screen_h - 20))
+            screen.blit(speed_surf, (20, self.screen_h - self._font.get_linesize() - 4))
 
         # Boutons
         for btn in self._buttons:

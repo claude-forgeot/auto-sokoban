@@ -137,6 +137,7 @@ class RankingScene(Scene):
             empty = self._font.render("Aucun score enregistre.", True, MUTED_COLOR)
             screen.blit(empty, (self.screen_w // 2 - empty.get_width() // 2, y + 30))
         else:
+            row_h = self._font.get_linesize()
             for i, entry in enumerate(self._entries):
                 rank = i + 1
                 mins, secs = divmod(int(entry.time_s), 60)
@@ -147,7 +148,7 @@ class RankingScene(Scene):
                 )
                 line_surf = self._font.render(line, True, color)
                 screen.blit(line_surf, (40, y))
-                y += 22
+                y += row_h
 
         # Footer source
         footer = self._font_small.render(
