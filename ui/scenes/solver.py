@@ -390,41 +390,31 @@ class SolverScene(Scene):
             deadlock_overlay = self.renderer.render_deadlock_overlay(state)
             board_surface.blit(deadlock_overlay, (0, 0))
         bw, bh = board_surface.get_size()
-        panel_w = 370
-        available_w = self.screen_w - panel_w
-        gx = (available_w - bw) // 2
-        gy = 40 + (self.screen_h - 40 - bh) // 2
-        screen.blit(board_surface, (max(10, gx), max(40, gy)))
+        bz = self._zones.board
+        gx = bz.left + (bz.width - bw) // 2
+        gy = bz.top + (bz.height - bh) // 2
+        screen.blit(board_surface, (max(bz.left + 10, gx), max(bz.top, gy)))
 
-        # Panneau metriques (droite)
+        # Panneau métriques (zone droite haute des zones nommées)
         solver_running = self._solver_thread is not None and self._solver_thread.is_alive()
+        m = self._zones.metrics
         if self._all_done:
             metrics_surf = self.metrics.render_comparison(self._results)
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
-            # La timeline doit eviter la pile de boutons droite. On borne sa
-            # largeur jusqu'au btn_left et sa hauteur jusqu'au btn_top le plus
-            # haut (TIMEOUT depasse la pile REJOUER...). Fix partiel : avec le
-            # layout boutons actuel #230, la timeline reste etroite -- la refonte
-            # globale est suivie dans #230.
-            tl_x = self.screen_w - panel_w
-            tl_y = 40 + metrics_surf.get_height() + 6
-            right_buttons = list(self._buttons)
-            if self._timeout_button is not None:
-                right_buttons.append(self._timeout_button)
-            btn_left = min((b.rect.left for b in right_buttons), default=self.screen_w)
-            btn_top = min((b.rect.top for b in right_buttons), default=self.screen_h)
-            tl_w = max(180, btn_left - tl_x - 10)
-            tl_h = max(80, btn_top - tl_y - 10)
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
+            comp_h = metrics_surf.get_height()
+            # Timeline remplit la hauteur restante dans zones.metrics
+            # (zones disjointes => jamais sous les boutons actions).
+            tl_h = max(80, m.height - 10 - comp_h - 6 - 10)
             timeline_surf = self.metrics.render_timeline(
-                self._timelines, width=tl_w, height=tl_h,
+                self._timelines, width=m.width - 20, height=tl_h,
             )
-            screen.blit(timeline_surf, (tl_x, tl_y))
+            screen.blit(timeline_surf, (m.left + 10, m.top + 10 + comp_h + 6))
         elif solver_running:
             metrics_surf = self.metrics.render_progress()
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
         else:
             metrics_surf = self.metrics.render()
-            screen.blit(metrics_surf, (self.screen_w - panel_w, 40))
+            screen.blit(metrics_surf, (m.left + 10, m.top + 10))
 
         # Status
         if self._solver_thread is not None and self._solver_thread.is_alive():
