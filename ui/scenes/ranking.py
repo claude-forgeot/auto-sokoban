@@ -41,25 +41,30 @@ class RankingScene(Scene):
 
     def on_enter(self) -> None:
         pygame.font.init()
-        from ui.fonts import load_font
-        from ui.layout import scale_font_size
-        self._font_title = load_font(scale_font_size(28, self.screen_h), bold=True)
-        self._font = load_font(scale_font_size(16, self.screen_h))
+        self._build_layout()
 
         if self.level_name:
             self._entries = get_ranking(self.level_name, limit=10)
         else:
             self._entries = get_all_ranking(limit=15)
 
+    def _build_layout(self) -> None:
+        from ui.fonts import load_font
+        from ui.layout import scale_font_size
+        self._font_title = load_font(scale_font_size(28, self.screen_h), bold=True)
+        self._font = load_font(scale_font_size(16, self.screen_h))
         self._build_buttons()
 
     def _build_buttons(self) -> None:
+        from ui.layout import scale_font_size
         assert self._font is not None
-        btn_w, btn_h = 180, 35
+        btn_w = min(260, max(180, self.screen_w // 3))
+        btn_h = max(35, scale_font_size(40, self.screen_h))
+        margin_bottom = max(60, scale_font_size(60, self.screen_h))
         x = self.screen_w // 2 - btn_w // 2
         self._buttons = [
             Button(
-                pygame.Rect(x, self.screen_h - 60, btn_w, btn_h),
+                pygame.Rect(x, self.screen_h - margin_bottom, btn_w, btn_h),
                 "RETOUR MENU",
                 Action.BACK_MENU,
                 font=self._font,
@@ -72,7 +77,7 @@ class RankingScene(Scene):
         self.screen_w = new_w
         self.screen_h = new_h
         if self._font is not None:
-            self._build_buttons()
+            self._build_layout()
 
     def handle_events(self) -> None:
         actions = poll_events(self._buttons, audio=self.audio)
