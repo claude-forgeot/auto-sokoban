@@ -6,11 +6,23 @@ Projet 1re annee bachelor, La Plateforme (Marseille). Equipe de 3.
 
 ## Demarrage
 
+### Linux / macOS
+
 ```bash
 cd auto-sokoban
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python3 main.py
+```
+
+### Windows
+
+```cmd
+cd auto-sokoban
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
 ```
 
 ## Controles
