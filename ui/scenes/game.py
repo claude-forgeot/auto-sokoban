@@ -16,9 +16,12 @@ from ui.layout import scale_font_size
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-HUD_COLOR = (220, 220, 220)
-WIN_COLOR = (100, 255, 120)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    TEXT_MAIN as HUD_COLOR,
+    SUCCESS_GREEN as WIN_COLOR,
+)
+
 INPUT_COLOR = (255, 255, 200)
 
 _ACTION_TO_DIR = {

@@ -23,9 +23,12 @@ from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TEXT_COLOR = (220, 220, 220)
-STATUS_COLOR = (255, 220, 80)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    TEXT_MAIN as TEXT_COLOR,
+    ACCENT_YELLOW as STATUS_COLOR,
+    SEPARATOR,
+)
 
 REPLAY_SPEEDS = [
     ("0.25x", 1200),
@@ -155,7 +158,7 @@ class SolverScene(Scene):
             self._timeout_label(),
             Action.CYCLE_TIMEOUT,
             font=self._font,
-            color=(60, 60, 80),
+            color=SEPARATOR,
             hover_color=(90, 90, 120),
         )
 

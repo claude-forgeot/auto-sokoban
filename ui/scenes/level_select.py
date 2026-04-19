@@ -26,14 +26,18 @@ from ui.scenes import Mode
 from ui.scenes.base import Scene, SceneManager
 
 # Couleurs
-BG_COLOR = (25, 25, 35)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    ACCENT_YELLOW as TITLE_COLOR,
+    TEXT_MAIN as TEXT_COLOR,
+    TEXT_MUTED as MUTED_COLOR,
+    ACCENT_BLUE as HIGHLIGHT_BORDER,
+    SEPARATOR,
+)
+
 PANEL_COLOR = (35, 35, 50)
-TITLE_COLOR = (255, 220, 80)
-TEXT_COLOR = (220, 220, 220)
-MUTED_COLOR = (120, 120, 120)
 TAB_ACTIVE_COLOR = (60, 60, 100)
 TAB_INACTIVE_COLOR = (40, 40, 50)
-HIGHLIGHT_BORDER = (100, 180, 255)
 COMPLETED_MARK_COLOR = (80, 220, 120)
 
 # Dimensions layout (800x600)
@@ -443,7 +447,7 @@ class LevelSelectScene(Scene):
                     thumb = pygame.transform.scale(thumb, (thumb_w, thumb_h))
                 screen.blit(thumb, (cx, cy))
             else:
-                pygame.draw.rect(screen, (60, 60, 80), (cx, cy, thumb_w, thumb_h))
+                pygame.draw.rect(screen, SEPARATOR, (cx, cy, thumb_w, thumb_h))
 
             if lvl.name in self._completed:
                 mark_surf = self._font_small.render("[OK]", True, COMPLETED_MARK_COLOR)
@@ -502,7 +506,7 @@ class LevelSelectScene(Scene):
         )
         pygame.draw.rect(screen, PANEL_COLOR, panel_rect)
         pygame.draw.line(
-            screen, (60, 60, 80),
+            screen, SEPARATOR,
             (panel_rect.left, panel_rect.top),
             (panel_rect.left, panel_rect.bottom),
             width=1,

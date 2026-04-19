@@ -21,12 +21,15 @@ from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TEXT_COLOR = (220, 220, 220)
-HEADER_COLOR = (100, 180, 255)
-STATUS_COLOR = (255, 220, 80)
-DONE_COLOR = (100, 255, 120)
-SEPARATOR_COLOR = (60, 60, 80)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    TEXT_MAIN as TEXT_COLOR,
+    ACCENT_BLUE as HEADER_COLOR,
+    ACCENT_YELLOW as STATUS_COLOR,
+    SUCCESS_GREEN as DONE_COLOR,
+    SEPARATOR as SEPARATOR_COLOR,
+    DANGER_RED,
+)
 
 REPLAY_DELAY_MS = 250
 COL_COUNT = 3
@@ -255,7 +258,7 @@ class RaceScene(Scene):
             if lane.done and lane.result:
                 r = lane.result
                 status = "Résolu" if r.found else "Échec"
-                status_color = DONE_COLOR if r.found else (255, 100, 100)
+                status_color = DONE_COLOR if r.found else DANGER_RED
                 lines = [
                     (f"{status}", status_color),
                     (f"Coups  : {r.solution_length}", TEXT_COLOR),

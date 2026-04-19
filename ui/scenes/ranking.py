@@ -9,11 +9,14 @@ from ui.audio import AudioManager
 from ui.input import Action, Button, poll_events
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (25, 25, 35)
-TITLE_COLOR = (255, 220, 80)
-TEXT_COLOR = (220, 220, 220)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    ACCENT_YELLOW as TITLE_COLOR,
+    TEXT_MAIN as TEXT_COLOR,
+    SUCCESS_GREEN as HIGHLIGHT_COLOR,
+)
+
 HEADER_COLOR = (180, 180, 180)
-HIGHLIGHT_COLOR = (100, 255, 120)
 RANK_COLORS = [(255, 215, 0), (192, 192, 192), (205, 127, 50)]  # or, argent, bronze
 
 

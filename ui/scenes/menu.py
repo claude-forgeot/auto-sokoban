@@ -12,10 +12,12 @@ from ui.scenes import Mode
 from ui.scenes.base import Scene, SceneManager
 
 # Couleurs
-BG_COLOR = (25, 25, 35)
-TITLE_COLOR = (255, 220, 80)
-TEXT_COLOR = (220, 220, 220)
-MUTED_COLOR = (120, 120, 120)
+from ui.colors import (
+    BG_PRIMARY as BG_COLOR,
+    ACCENT_YELLOW as TITLE_COLOR,
+    TEXT_MAIN as TEXT_COLOR,
+    TEXT_MUTED as MUTED_COLOR,
+)
 
 
 class MenuScene(Scene):

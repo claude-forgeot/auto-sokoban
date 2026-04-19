@@ -15,9 +15,12 @@ from ui.layout import scale_font_size
 from ui.renderer import Renderer
 from ui.scenes.base import Scene, SceneManager
 
-BG_COLOR = (20, 15, 15)
+from ui.colors import (
+    BG_GAME_OVER as BG_COLOR,
+    DANGER_RED_GAME_OVER as TITLE_COLOR,
+)
+
 PANEL_COLOR = (40, 20, 20)
-TITLE_COLOR = (255, 80, 80)
 TEXT_COLOR = (230, 210, 210)
 MUTED_COLOR = (150, 120, 120)
 FROZEN_OVERLAY = (255, 40, 40, 140)  # rouge semi-transparent

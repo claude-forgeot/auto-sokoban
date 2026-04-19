@@ -7,13 +7,16 @@ import pygame
 from solver.base import SolverProgress, SolverResult
 from ui.fonts import load_font
 
+from ui.colors import (
+    TEXT_MAIN as COLOR_TEXT,
+    ACCENT_BLUE as COLOR_HEADER,
+    SUCCESS_GREEN as COLOR_BEST,
+    DANGER_RED as COLOR_WORST,
+    SEPARATOR as COLOR_SEPARATOR,
+)
+
 # Couleurs
 COLOR_BG = (30, 30, 40)
-COLOR_TEXT = (220, 220, 220)
-COLOR_HEADER = (100, 180, 255)
-COLOR_BEST = (100, 255, 120)
-COLOR_WORST = (255, 100, 100)
-COLOR_SEPARATOR = (60, 60, 80)
 COLOR_FLASH = (255, 220, 50)
 COLOR_TIMEOUT_WARN = (255, 90, 90)
 
@@ -306,8 +309,8 @@ class MetricsPanel:
 
         # Couleurs par algo
         algo_colors: dict[str, tuple[int, int, int]] = {
-            "A*": (100, 255, 120),
-            "BFS": (100, 180, 255),
+            "A*": COLOR_BEST,
+            "BFS": COLOR_HEADER,
             "DFS": (255, 180, 80),
         }
         default_color = COLOR_TEXT
