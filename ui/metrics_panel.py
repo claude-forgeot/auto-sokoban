@@ -277,6 +277,57 @@ class MetricsPanel:
 
         return surface
 
+    def render_comparison_live(self, lanes: list) -> pygame.Surface:
+        """Rend un tableau comparatif avec mix SolverProgress (en cours) + SolverResult (finis).
+
+        Pour chaque lane :
+        - lane.result (SolverResult) : affiche coups/noeuds/temps finaux.
+        - lane.progress (SolverProgress) : coups="—", noeuds=live, temps=elapsed live.
+        - ni l'un ni l'autre : tout à "—" (pas encore démarré).
+
+        Le nom de l'algo est récupéré via lane.solver.name.
+        """
+        font = self._get_font()
+        line_h = font.get_linesize() + 4
+        height = line_h * (len(lanes) + 2) + 10
+        surface = pygame.Surface((self.width, height))
+        surface.fill(COLOR_BG)
+
+        if not lanes:
+            return surface
+
+        header = f"{'Algo':<6} {'Coups':>6} {'Noeuds':>8} {'Temps':>10}"
+        rendered = font.render(header, True, COLOR_HEADER)
+        surface.blit(rendered, (10, 4))
+
+        y = line_h + 2
+        pygame.draw.line(surface, COLOR_SEPARATOR, (10, y), (self.width - 10, y))
+        y += 4
+
+        for lane in lanes:
+            algo = lane.solver.name
+            if lane.result is not None:
+                r = lane.result
+                if r.found:
+                    line = f"{algo:<6} {r.solution_length:>6} {r.total_nodes_explored:>8} {r.time_ms:>9.1f}ms"
+                    color = COLOR_TEXT
+                else:
+                    line = f"{algo:<6} {'échec':>6} {r.total_nodes_explored:>8} {r.time_ms:>9.1f}ms"
+                    color = COLOR_WORST
+            elif lane.progress is not None:
+                p = lane.progress
+                line = f"{algo:<6} {'—':>6} {p.nodes_explored:>8} {p.elapsed_ms:>9.1f}ms"
+                color = COLOR_TEXT
+            else:
+                line = f"{algo:<6} {'—':>6} {'—':>8} {'—':>10}"
+                color = COLOR_TEXT
+
+            rendered = font.render(line, True, color)
+            surface.blit(rendered, (10, y))
+            y += line_h
+
+        return surface
+
     def render_timeline(
         self, timelines: dict[str, list[tuple[float, int]]], width: int = 0, height: int = 0,
     ) -> pygame.Surface:
