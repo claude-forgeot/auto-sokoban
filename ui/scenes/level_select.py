@@ -625,4 +625,6 @@ def _render_thumbnail(path: Path, width: int, height: int) -> pygame.Surface:
     state = board.state
     tile = max(4, min(width // max(state.width, 1), height // max(state.height, 1)))
     renderer = Renderer(tile_size=tile)
-    return renderer.render(state)
+    # .convert() aligne le format pixel sur le display : blit rapide, une
+    # seule conversion lors du rendu plutot qu'a chaque frame.
+    return renderer.render(state).convert()
