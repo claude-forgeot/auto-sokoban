@@ -13,13 +13,11 @@ from ui.colors import (
     BG as BG_COLOR,
     SAGE_DARK as TITLE_COLOR,
     INK as TEXT_COLOR,
-    GOLD as HIGHLIGHT_COLOR,
     OLIVE as MUTED_COLOR,
     SAGE,
 )
 
 HEADER_COLOR = TEXT_COLOR
-RANK_COLORS = [HIGHLIGHT_COLOR, HIGHLIGHT_COLOR, HIGHLIGHT_COLOR]  # top 3 en gold
 
 
 class RankingScene(Scene):
@@ -157,12 +155,11 @@ class RankingScene(Scene):
             for i, entry in enumerate(self._entries):
                 rank = i + 1
                 mins, secs = divmod(int(entry.time_s), 60)
-                color = RANK_COLORS[i] if i < 3 else TEXT_COLOR
                 line = (
                     f"{rank:>3}  {entry.player:<12} {entry.level:<15} "
                     f"{entry.moves:>6} {mins:02d}:{secs:02d}   {entry.date:<16}"
                 )
-                line_surf = self._font.render(line, True, color)
+                line_surf = self._font.render(line, True, TEXT_COLOR)
                 screen.blit(line_surf, (40, y))
                 y += row_h
 
