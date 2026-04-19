@@ -36,6 +36,22 @@ class SolverZones:
     actions: pygame.Rect
 
 
+@dataclass(frozen=True)
+class RaceZones:
+    """Zones nommées disjointes pour RaceScene.
+
+    title      : bande haute (nom niveau)
+    lanes      : bande centrale (3 colonnes de largeur égale)
+    comparatif : bande basse live (Algo / Coups / Nœuds / Temps)
+    actions    : footer (RETOUR MENU centré)
+    """
+
+    title: pygame.Rect
+    lanes: pygame.Rect
+    comparatif: pygame.Rect
+    actions: pygame.Rect
+
+
 def scale_rect(
     base_rect: pygame.Rect,
     current_size: tuple[int, int],
@@ -93,4 +109,32 @@ def compute_solver_zones(screen_w: int, screen_h: int) -> SolverZones:
         board=pygame.Rect(0, title_h, board_w, screen_h - title_h),
         metrics=pygame.Rect(board_w, title_h, panel_w, metrics_h),
         actions=pygame.Rect(board_w, title_h + metrics_h, panel_w, actions_h),
+    )
+
+
+def compute_race_zones(screen_w: int, screen_h: int) -> RaceZones:
+    """Decoupe l'ecran RaceScene en 4 bandes horizontales disjointes.
+
+    Règles :
+    - title_h scale vertical (min 30px, base 40)
+    - actions_h scale vertical (min 50px, base 60) -- 1 bouton centré
+    - comp_h scale vertical (min 110px, base 130) -- header + 3 lignes + padding
+    - lanes_h : reste de la hauteur
+
+    Garanties :
+    - Les 4 zones sont disjointes (pas de chevauchement).
+    - Union des zones couvre l'écran entier (pas de pixel perdu).
+    - lanes_h >= 288 = 480 - 32 - 50 - 110 pour screen_h >= MIN_H = 480.
+    """
+    sy = screen_h / BASE_H
+    title_h = max(30, int(40 * sy))
+    actions_h = max(50, int(60 * sy))
+    comp_h = max(110, int(130 * sy))
+    lanes_h = screen_h - title_h - actions_h - comp_h
+
+    return RaceZones(
+        title=pygame.Rect(0, 0, screen_w, title_h),
+        lanes=pygame.Rect(0, title_h, screen_w, lanes_h),
+        comparatif=pygame.Rect(0, title_h + lanes_h, screen_w, comp_h),
+        actions=pygame.Rect(0, title_h + lanes_h + comp_h, screen_w, actions_h),
     )
