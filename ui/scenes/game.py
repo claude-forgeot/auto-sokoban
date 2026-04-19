@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 import pygame
@@ -69,6 +70,7 @@ class GameScene(Scene):
         self._win_elapsed = 0.0
         self._confirm_solve = False
         self._facing_left = False
+        self._invalid_move_shake_start: int = 0
 
         # MODIFICATION : Flag pour vérifier si le son de début a été joué
         # Cela permet de lancer le son game_start une seule fois au démarrage
@@ -157,24 +159,26 @@ class GameScene(Scene):
                 return
             elif action in _ACTION_TO_DIR and not self.won:
                 direction = _ACTION_TO_DIR[action]
-                if self.board.move(direction):
-                    self.move_count += 1
-                    if direction == Direction.LEFT:
-                        self._facing_left = True
-                    elif direction == Direction.RIGHT:
-                        self._facing_left = False
-                    if self._last_was_push():
-                        self.audio.play_bottle_clank()
-                    else:
-                        self.audio.play_sfx("move")
-                    if self.board.is_won():
-                        self.won = True
-                        self._win_elapsed = time.time() - self.start_time
-                        self._entering_name = True
-                        self.audio.play_sfx("win")
-                    elif is_lost(self.board.state):
-                        self._to_game_over("deadlock")
-                        return
+                if not self.board.move(direction):
+                    self._invalid_move_shake_start = pygame.time.get_ticks()
+                    continue
+                self.move_count += 1
+                if direction == Direction.LEFT:
+                    self._facing_left = True
+                elif direction == Direction.RIGHT:
+                    self._facing_left = False
+                if self._last_was_push():
+                    self.audio.play_bottle_clank()
+                else:
+                    self.audio.play_sfx("move")
+                if self.board.is_won():
+                    self.won = True
+                    self._win_elapsed = time.time() - self.start_time
+                    self._entering_name = True
+                    self.audio.play_sfx("win")
+                elif is_lost(self.board.state):
+                    self._to_game_over("deadlock")
+                    return
             elif action == Action.ABANDON and not self.won:
                 self._to_game_over("abandon")
                 return
@@ -292,6 +296,12 @@ class GameScene(Scene):
         available_w = self.screen_w - panel_w
         gx = (available_w - bw) // 2
         gy = 50 + (self.screen_h - 50 - bh) // 2
+        if self._invalid_move_shake_start:
+            elapsed = pygame.time.get_ticks() - self._invalid_move_shake_start
+            if elapsed < 200:
+                gx += int(math.sin(elapsed * 0.030) * 4)
+            else:
+                self._invalid_move_shake_start = 0
         screen.blit(board_surface, (gx, gy))
 
         # Boutons (panneau droite)
