@@ -33,6 +33,10 @@ from ui.colors import (
 
 REPLAY_DELAY_MS = 250
 COL_COUNT = 3
+# Drain borne par frame pour eviter que le producteur (thread solver,
+# _report_progress toutes les 50 iterations) n'inonde la main loop et fige
+# la fenetre en l'empechant de traiter ses events systeme.
+MAX_PROGRESS_DRAIN_PER_FRAME = 200
 
 
 @dataclass
@@ -186,7 +190,7 @@ class RaceScene(Scene):
 
     def update(self) -> None:
         for lane in self._lanes:
-            while not lane.progress_queue.empty():
+            for _ in range(MAX_PROGRESS_DRAIN_PER_FRAME):
                 try:
                     progress = lane.progress_queue.get_nowait()
                 except queue.Empty:
