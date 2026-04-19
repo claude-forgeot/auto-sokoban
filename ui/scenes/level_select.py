@@ -136,6 +136,10 @@ class LevelSelectScene(Scene):
         self.screen_w = new_w
         self.screen_h = new_h
         self._build_layout()
+        # Cle du LRU = (path, w, h) ; chaque resize change (w, h) pour la preview
+        # et pollue le cache avec d'anciennes tailles devenues inutiles.
+        _render_thumbnail.cache_clear()
+        self._load_thumbnails()
 
     def _build_layout(self) -> None:
         self._font_title = load_serif(scale_font_size(28, self.screen_h), weight="bold")
