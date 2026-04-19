@@ -46,6 +46,13 @@ DEFAULT_SPEED_IDX = 2  # 1x
 TIMEOUT_OPTIONS_MS = [30_000, 60_000, 180_000]
 DEFAULT_TIMEOUT_IDX = TIMEOUT_OPTIONS_MS.index(DEFAULT_TIMEOUT_MS)
 
+# Meme garde-fou que RaceScene : borner le drain de la queue par frame
+# sinon le thread principal ne rend jamais la main a pygame.event.get().
+MAX_PROGRESS_DRAIN_PER_FRAME = 200
+# Limite souple des points de timeline par algo : decimation 1 sur 2 au-dela
+# pour conserver la courbe complete sans saturer memoire et rendu.
+MAX_TIMELINE_POINTS = 500
+
 
 class SolverScene(Scene):
     """Lance les solveurs, affiche replay pas-a-pas et tableau comparatif."""
@@ -295,8 +302,10 @@ class SolverScene(Scene):
 
     def update(self) -> None:
         """Met à jour l'état du replay automatique."""
-        # Poller les messages de progression du solveur
-        while not self._progress_queue.empty():
+        # Poller les messages de progression du solveur (drain borne : meme
+        # raisonnement que RaceScene, evite le freeze de la fenetre quand
+        # le thread solveur inonde la queue plus vite qu'on ne draine).
+        for _ in range(MAX_PROGRESS_DRAIN_PER_FRAME):
             try:
                 progress = self._progress_queue.get_nowait()
             except queue.Empty:
@@ -310,6 +319,10 @@ class SolverScene(Scene):
             if algo not in self._timelines:
                 self._timelines[algo] = []
             self._timelines[algo].append((progress.elapsed_ms, progress.nodes_explored))
+            if len(self._timelines[algo]) > MAX_TIMELINE_POINTS:
+                # Decimation 1/2 : conserve la courbe complete (debut + fin)
+                # au prix d'une resolution temporelle divisee par 2.
+                self._timelines[algo] = self._timelines[algo][::2]
 
             if progress.finished and progress.result is not None:
                 self._current_result = progress.result
