@@ -1,25 +1,44 @@
-"""Palette de couleurs centralisee pour les scenes UI.
+"""Palette de couleurs Cottagecore centralisee pour les scenes UI.
 
-Toutes les couleurs utilisees par les scenes et widgets viennent d ici.
-Les scenes peuvent importer sous un alias semantique local (BG_COLOR,
-TITLE_COLOR, etc.) pour preserver la lisibilite dans le contexte.
+15 tokens semantiques (sage + or + terracotta) issus de `design/ui-mockup.md`
+(direction Cottagecore validee 2026-04-19). Les scenes peuvent importer sous
+un alias semantique local (BG_COLOR, TITLE_COLOR, etc.) pour preserver la
+lisibilite dans le contexte.
+
+Les alias legacy (ACCENT_YELLOW, SUCCESS_GREEN, etc.) pointent vers les
+nouveaux tokens pour ne pas casser les imports nommes dans les scenes.
 """
 
 from __future__ import annotations
 
 RGB = tuple[int, int, int]
 
-BG_PRIMARY: RGB = (25, 25, 35)
-BG_GAME_OVER: RGB = (20, 15, 15)
+# 15 tokens Cottagecore
 
-ACCENT_YELLOW: RGB = (255, 220, 80)
-ACCENT_BLUE: RGB = (100, 180, 255)
+BG: RGB = (245, 234, 208)
+PANEL: RGB = (251, 245, 230)
+INK: RGB = (46, 59, 29)
+SAGE: RGB = (107, 142, 35)
+SAGE_DARK: RGB = (74, 107, 43)
+OLIVE: RGB = (139, 115, 85)
+OLIVE_DARK: RGB = (93, 75, 58)
+TERRACOTTA: RGB = (192, 112, 64)
+TERRACOTTA_DARK: RGB = (136, 74, 40)
+GOLD: RGB = (212, 167, 58)
+GOLD_DARK: RGB = (154, 120, 32)
+BROWN: RGB = (139, 90, 60)
+BROWN_DARK: RGB = (106, 68, 56)
+CREAM: RGB = (236, 217, 168)
+SEPARATOR: RGB = (139, 115, 85)
 
-SUCCESS_GREEN: RGB = (100, 255, 120)
-DANGER_RED: RGB = (255, 100, 100)
-DANGER_RED_GAME_OVER: RGB = (255, 80, 80)
+# Alias legacy -> tokens Cottagecore (backcompat imports nommes scenes)
 
-TEXT_MAIN: RGB = (220, 220, 220)
-TEXT_MUTED: RGB = (120, 120, 120)
-
-SEPARATOR: RGB = (60, 60, 80)
+BG_PRIMARY: RGB = BG
+BG_GAME_OVER: RGB = BROWN
+ACCENT_YELLOW: RGB = GOLD
+ACCENT_BLUE: RGB = SAGE
+SUCCESS_GREEN: RGB = SAGE
+DANGER_RED: RGB = TERRACOTTA
+DANGER_RED_GAME_OVER: RGB = TERRACOTTA_DARK
+TEXT_MAIN: RGB = INK
+TEXT_MUTED: RGB = OLIVE
