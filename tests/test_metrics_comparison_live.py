@@ -1,11 +1,11 @@
 """Tests pour MetricsPanel.render_comparison_live (mix progress/result)."""
 
 import os
+from types import SimpleNamespace
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import pygame
-import pytest
 
 pygame.init()
 
@@ -34,10 +34,9 @@ class _FakeLane:
     def __init__(self, result=None, progress=None):
         self.result = result
         self.progress = progress
-        class _S: pass
-        self.solver = _S()
-        self.solver.name = (result.algo_name if result else
-                             progress.algo_name if progress else "?")
+        algo_name = (result.algo_name if result else
+                     progress.algo_name if progress else "?")
+        self.solver = SimpleNamespace(name=algo_name)
 
 
 def test_render_comparison_live_all_finished_returns_surface():
