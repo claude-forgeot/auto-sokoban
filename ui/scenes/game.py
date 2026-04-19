@@ -207,7 +207,9 @@ class GameScene(Scene):
 
     def _handle_solve_confirm(self) -> None:
         """Attend confirmation O/N avant de lancer le solveur."""
-        for event in pygame.event.get():
+        # Filtre pygame : laisser VIDEORESIZE dans la queue (pris par main loop)
+        # sinon les resize pendant la confirmation sont avales et l'UI decale.
+        for event in pygame.event.get((pygame.QUIT, pygame.KEYDOWN)):
             if event.type == pygame.QUIT:
                 self.manager.quit()
                 return
@@ -226,7 +228,9 @@ class GameScene(Scene):
 
     def _handle_name_input(self) -> None:
         """Gere la saisie du nom du joueur apres victoire."""
-        for event in pygame.event.get():
+        # Filtre pygame : laisser VIDEORESIZE dans la queue (pris par main loop)
+        # sinon les resize pendant la saisie sont avales et l'UI decale.
+        for event in pygame.event.get((pygame.QUIT, pygame.KEYDOWN, pygame.TEXTINPUT)):
             if event.type == pygame.QUIT:
                 self.manager.quit()
                 return
