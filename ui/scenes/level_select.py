@@ -41,6 +41,7 @@ from ui.colors import (
 TAB_ACTIVE_COLOR = SAGE
 TAB_INACTIVE_COLOR = CREAM
 COMPLETED_MARK_COLOR = SAGE
+PENDING_STATUS_COLOR = OLIVE_DARK
 
 # Dimensions layout (800x600)
 TAB_BAR_H = 50
@@ -580,7 +581,12 @@ class LevelSelectScene(Scene):
 
         info_y = preview_y + preview_h + 20
         for line in info_lines:
-            color = COMPLETED_MARK_COLOR if line.startswith("[OK]") else TEXT_COLOR
+            if line.startswith("[OK]"):
+                color = COMPLETED_MARK_COLOR
+            elif line == "Jamais termine":
+                color = PENDING_STATUS_COLOR
+            else:
+                color = TEXT_COLOR
             surf = self._font_small.render(line, True, color)
             screen.blit(surf, (panel_rect.left + 20, info_y))
             info_y += info_line_h
