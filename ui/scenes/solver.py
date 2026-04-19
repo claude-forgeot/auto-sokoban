@@ -17,7 +17,7 @@ from solver.bfs import BFS
 from solver.dfs import DFS
 from ui.audio import AudioManager
 from ui.fonts import load_font, load_mono, load_serif
-from ui.layout import BASE_H, BASE_W, scale_font_size
+from ui.layout import BASE_H, BASE_W, SolverZones, compute_solver_zones, scale_font_size
 from ui.input import Action, Button, poll_events
 from ui.metrics_panel import MetricsPanel
 from ui.renderer import Renderer
@@ -66,6 +66,7 @@ class SolverScene(Scene):
         self.audio = audio
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self._zones: SolverZones = compute_solver_zones(screen_w, screen_h)
 
         self.board = load_level(level_meta.path)
         self._initial_state = self.board.state
@@ -76,7 +77,7 @@ class SolverScene(Scene):
             variant=self._variant,
         )
         self.metrics = MetricsPanel(
-            width=max(350, int(350 * screen_w / BASE_W)),
+            width=self._zones.metrics.width - 20,
             font_size=scale_font_size(16, screen_h),
         )
 
