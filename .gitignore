@@ -24,3 +24,6 @@ env/
 Image collée*.png
 Pasted*.png
 Screenshot*.png
+
+# Rapports PDF générés (doc/)
+doc/*.pdf

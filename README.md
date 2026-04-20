@@ -46,6 +46,7 @@ ui/            Scenes Pygame, rendu, boutons, audio
 levels/        52 niveaux XSB (18 faciles, 17 moyens, 17 difficiles)
 assets/        Sprites + sons
 tests/         pytest sur les solveurs et le plateau
+doc/           Rapports PDF generes (gitignore)
 ```
 
 `main.py`, `build-game.py` et `display-game.py` a la racine comme demande
@@ -89,7 +90,24 @@ A* met 32ms pour 19 coups. Sur hard_1 BFS explore 274k noeuds, A* seulement
 
 - Jeu complet (deplacement, poussee, undo, reset)
 - 52 niveaux : 18 faciles, 17 moyens, 17 difficiles
-- Resolution auto avec replay pas-a-pas
-- Comparaison des 3 algos avec metriques
+- Resolution auto avec replay pas-a-pas (vitesse reglable, pause, pas-a-pas)
+- Course d'algorithmes : les 3 solveurs tournent en parallele cote-a-cote
+- Comparaison des 3 algos avec tableau de metriques et timeline
+- Heatmap de visualisation des noeuds explores
+- Export PDF : rapport comparatif avec explications detaillees des algorithmes
 - Classement sauvegarde en SQLite
 - Musique + effets sonores
+
+## Export PDF
+
+Depuis la scene de resolution automatique ou la course d'algorithmes,
+le bouton **EXPORTER PDF** genere un rapport dans le dossier `doc/`.
+
+Le PDF contient :
+- Les informations du niveau (dimensions, nombre de caisses/cibles)
+- Un tableau comparatif des 3 algorithmes (resultat, coups, noeuds, temps)
+- Des explications detaillees sur chaque algorithme pour les debutants
+- Une analyse des resultats et des conseils pour resoudre manuellement
+
+Prerequis : `pip install reportlab` (inclus dans `requirements.txt`).
+Les fichiers PDF generes sont en `.gitignore`.

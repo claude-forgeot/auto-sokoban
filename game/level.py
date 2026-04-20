@@ -26,12 +26,23 @@ class LevelMeta:
 
 def load_level(path: str | Path) -> Board:
     """Charge un fichier XSB et retourne un Board.
-
+    
     Raises:
         FileNotFoundError: si le fichier n'existe pas.
-        ValueError: si le contenu XSB est invalide.
+        ValueError: si le contenu XSB est invalide ou chemin malveillant.
     """
-    p = Path(path)
+    p = Path(path).resolve()
+    
+    # Vérifier que le chemin est dans le répertoire autorisé
+    allowed_dir = Path(__file__).resolve().parent.parent / "levels"
+    try:
+        p.relative_to(allowed_dir)
+    except ValueError:
+        raise ValueError(f"Path {path} is outside allowed levels directory")
+    
+    if not p.exists():
+        raise FileNotFoundError(f"Level file not found: {p}")
+    
     text = p.read_text(encoding="utf-8")
     return Board.from_xsb(text)
 

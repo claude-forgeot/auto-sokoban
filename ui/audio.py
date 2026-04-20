@@ -156,8 +156,18 @@ class AudioManager:
     @staticmethod
     def _find_file(name: str) -> Path | None:
         """Cherche ``name`` avec les extensions supportees dans assets/."""
+        # Valider que name ne contient pas de traversal
+        if ".." in name or "/" in name or "\\" in name or name.startswith("/"):
+            return None
+        
         for ext in _SUPPORTED_EXT:
             path = _ASSETS_DIR / f"{name}{ext}"
+            # Vérifier que le chemin reste dans _ASSETS_DIR
+            try:
+                path.resolve().relative_to(_ASSETS_DIR.resolve())
+            except ValueError:
+                return None
+            
             if path.is_file():
                 return path
         return None
