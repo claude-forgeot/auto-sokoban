@@ -253,13 +253,15 @@ class MetricsPanel:
         # (sinon les noms en grande font chevauchent les barres).
         name_w = max(font.size(f"{r.algo_name:<4}")[0] for r in results)
         bar_x = 10 + name_w + 10
-        bar_max_w = max(20, self.width - bar_x - max_label_w - 20)
+        # Padding droite : 5 (espace bar/label) + max_label_w + 10 (marge bord)
+        bar_max_w = max(20, self.width - bar_x - max_label_w - 15)
         bar_y_offset = max(2, (font.get_height() - bar_h) // 2)
         label_y_offset = max(0, (bar_h - font.get_height()) // 2)
 
         for r in results:
             ratio = r.time_ms / max_time
-            bar_w = max(2, int(ratio * bar_max_w))
+            # Clamp dur : meme si ratio > 1 (defensif), bar_w n'excede jamais bar_max_w
+            bar_w = max(2, min(bar_max_w, int(ratio * bar_max_w)))
             if not r.found:
                 bar_color = COLOR_WORST
             elif r.time_ms == best_temps:
@@ -384,19 +386,21 @@ class MetricsPanel:
                 sx = margin_left + int(t_ms / max_time * gw)
                 sy = margin_top + gh - int(nodes / max_nodes * gh)
                 screen_points.append((sx, sy))
-            pygame.draw.lines(surface, color, False, screen_points, 2)
+            pygame.draw.lines(surface, color, False, screen_points, 3)
 
-        # Legende : placee sous le titre, sur sa propre ligne
+        # Legende : placee sous le titre, sur sa propre ligne. Carre plein
+        # (au lieu d'une ligne fine) pour rester lisible quand l'echelle ecrase
+        # le marqueur.
         lx = margin_left + 4
         ly = line_h + 4
+        marker_size = max(8, line_h - 4)
         for algo_name in timelines:
             color = algo_colors.get(algo_name, default_color)
-            pygame.draw.line(
-                surface, color, (lx, ly + line_h // 2), (lx + 14, ly + line_h // 2), 2
-            )
-            label = font.render(algo_name, True, color)
-            surface.blit(label, (lx + 18, ly))
-            lx += 18 + label.get_width() + 16
+            marker_rect = pygame.Rect(lx, ly + (line_h - marker_size) // 2, marker_size, marker_size)
+            pygame.draw.rect(surface, color, marker_rect, border_radius=2)
+            label = font.render(algo_name, True, COLOR_TEXT)
+            surface.blit(label, (lx + marker_size + 6, ly))
+            lx += marker_size + 6 + label.get_width() + 14
 
         # Labels axes
         time_label = font.render(f"{max_time:.0f}ms", True, COLOR_TEXT)
