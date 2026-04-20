@@ -80,10 +80,13 @@ class GameScene(Scene):
         self._game_start_sound_played = False
 
     def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
-        hud_h = max(36, int(50 * screen_h / 600))
-        actions_h = max(50, int(60 * screen_h / 600))
+        sy = screen_h / 600
+        # Reservation HUD alignee sur draw() : 8 (top margin) + padding(12) +
+        # label(~14*sy + ascent) + value(~18*sy + ascent) + 6 (gap sous bordure).
+        hud_h = max(66, 8 + 12 + int(18 * sy) + int(22 * sy) + 6)
+        actions_h = max(50, int(60 * sy))
         available_w = screen_w - 40
-        available_h = screen_h - hud_h - actions_h - 20
+        available_h = screen_h - hud_h - actions_h - 10
         cols = self.board.state.width
         rows = self.board.state.height
         adaptive_tile = min(
@@ -314,7 +317,13 @@ class GameScene(Scene):
         # HUD haut : barre PANEL + 3 champs label/valeur.
         elapsed = self._win_elapsed if self.won else time.time() - self.start_time
         mins, secs = divmod(int(elapsed), 60)
-        hud_h = 44
+        # hud_h dynamique : padding + hauteur reelle des deux fonts pour eviter
+        # que la valeur deborde sous la bordure (audit visuel : "microban_001"
+        # confondu avec la ligne UI quand hud_h etait fixe a 44).
+        hud_pad = 6
+        lbl_h = self._font_label.get_height()
+        val_h = self._font.get_height()
+        hud_h = hud_pad * 2 + lbl_h + val_h
         hud_rect = pygame.Rect(10, 8, self.screen_w - 20, hud_h)
         pygame.draw.rect(screen, HUD_BG, hud_rect, border_radius=10)
         pygame.draw.rect(screen, HUD_BORDER, hud_rect, width=2, border_radius=10)
@@ -329,17 +338,16 @@ class GameScene(Scene):
             col_x = hud_rect.left + 10 + i * col_w
             lbl = self._font_label.render(f"{label.upper()} :", True, LABEL_COLOR)
             val = self._font.render(value, True, HUD_COLOR)
-            screen.blit(lbl, (col_x, hud_rect.top + 6))
-            screen.blit(val, (col_x, hud_rect.top + 6 + lbl.get_height()))
+            screen.blit(lbl, (col_x, hud_rect.top + hud_pad))
+            screen.blit(val, (col_x, hud_rect.top + hud_pad + lbl_h))
 
         # Grille centree sur panneau CREAM + bordure OLIVE (barre actions reservee en bas).
         board_surface = self.renderer.render(self.board.state, facing_left=self._facing_left)
         bw, bh = board_surface.get_size()
         sy = self.screen_h / 600
         actions_bar_h = max(50, int(60 * sy))
-        hud_top_h = max(36, int(50 * sy))
         gx = (self.screen_w - bw) // 2
-        board_area_top = hud_top_h
+        board_area_top = hud_rect.bottom + 6
         board_area_h = self.screen_h - board_area_top - actions_bar_h
         gy = board_area_top + (board_area_h - bh) // 2
         if self._invalid_move_shake_start:
