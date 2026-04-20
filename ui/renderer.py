@@ -23,6 +23,9 @@ class Renderer:
     """Dessine un BoardState dans une Surface Pygame."""
 
     _DEFAULT_ASSETS = Path(__file__).resolve().parent.parent / "assets"
+    MIN_TILE_SIZE = 1
+    MAX_TILE_SIZE = 1024  # ← Limite raisonnable
+    MAX_SURFACE_DIM = 8192  # ← 64 Mpixels max
 
     def __init__(
         self,
@@ -30,6 +33,10 @@ class Renderer:
         assets_dir: str | Path | None = None,
         variant: int = 0,
     ) -> None:
+        if not isinstance(tile_size, int):
+            raise ValueError(f"tile_size must be int, got {type(tile_size).__name__}")
+        if tile_size < self.MIN_TILE_SIZE or tile_size > self.MAX_TILE_SIZE:
+            raise ValueError(f"tile_size must be {self.MIN_TILE_SIZE}-{self.MAX_TILE_SIZE}, got {tile_size}")
         self.tile_size = tile_size
         self._assets_dir = Path(assets_dir) if assets_dir is not None else self._DEFAULT_ASSETS
         self._variant = variant
@@ -114,6 +121,12 @@ class Renderer:
 
         w = state.width * self.tile_size
         h = state.height * self.tile_size
+        # Vérifier dimensions finales MAIS avec un peu de tolérance
+        if w > self.MAX_SURFACE_DIM or h > self.MAX_SURFACE_DIM:
+            raise ValueError(
+                f"Rendered surface too large: {w}x{h} (max {self.MAX_SURFACE_DIM}). "
+                f"Try reducing tile_size from {self.tile_size} or level size."
+            )
         surface = pygame.Surface((w, h))
         surface.fill((0, 0, 0))
 
@@ -158,11 +171,22 @@ class Renderer:
         if not visit_counts:
             return overlay
 
-        max_count = max(visit_counts.values())
+        # ✅ CORRECTION : Filtrer les positions invalides plutôt que de lever une erreur
+        valid_counts = {
+            (row, col): count
+            for (row, col), count in visit_counts.items()
+            if 0 <= row < state.height and 0 <= col < state.width
+        }
+        
+        if not valid_counts:
+            return overlay
+
+        max_count = max(valid_counts.values())
         if max_count == 0:
             return overlay
 
-        for (row, col), count in visit_counts.items():
+        # Utiliser valid_counts au lieu de visit_counts
+        for (row, col), count in valid_counts.items():
             if (row, col) in state.walls:
                 continue
             t = count / max_count

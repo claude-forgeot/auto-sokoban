@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 import queue
 import threading
 from dataclasses import dataclass, field
@@ -99,6 +101,14 @@ class RaceScene(Scene):
         self._font_small: pygame.font.Font | None = None
         self._buttons: list[Button] = []
 
+        # Toast confirmation
+        self._toast_text: str | None = None
+        self._toast_timer: int = 0
+        self._toast_duration_ms: int = 3000
+
+        # Timeline progression (algo_name -> list[(elapsed_ms, nodes)])
+        self._timelines: dict[str, list[tuple[float, int]]] = {}
+
     def _compute_layout(self, screen_w: int, screen_h: int) -> None:
         self._zones = compute_race_zones(screen_w, screen_h)
 
@@ -119,12 +129,17 @@ class RaceScene(Scene):
     def _build_buttons(self) -> None:
         assert self._font is not None
         actions = self._zones.actions
-        btn_w = max(160, int(160 * self.screen_w / BASE_W))
+        btn_w = max(140, int(140 * self.screen_w / BASE_W))
         btn_h = max(32, int(32 * self.screen_h / BASE_H))
-        x = actions.centerx - btn_w // 2
+        gap = max(10, int(10 * self.screen_w / BASE_W))
+        total_w = 2 * btn_w + gap
+        start_x = actions.centerx - total_w // 2
         y = actions.centery - btn_h // 2
         self._buttons = [
-            Button(pygame.Rect(x, y, btn_w, btn_h), "RETOUR MENU",
+            Button(pygame.Rect(start_x, y, btn_w, btn_h), "EXPORTER PDF",
+                    Action.EXPORT_PDF, font=self._font,
+                    variant="primary"),
+            Button(pygame.Rect(start_x + btn_w + gap, y, btn_w, btn_h), "RETOUR MENU",
                     Action.BACK_MENU, font=self._font,
                     variant="quit"),
         ]
@@ -180,6 +195,9 @@ class RaceScene(Scene):
             if action == Action.QUIT:
                 self._cancel_all()
                 self.manager.quit()
+            elif action == Action.EXPORT_PDF:
+                if self._all_done:
+                    self._export_report()
             elif action == Action.BACK_MENU:
                 self._cancel_all()
                 # MODIFICATION : Arrêter les sons de la course et relancer la musique du menu
@@ -224,6 +242,13 @@ class RaceScene(Scene):
                     lane.thread = None
                 else:
                     lane.progress = progress
+
+                # Timeline : stocker (elapsed, nodes)
+                if not progress.finished:
+                    algo = progress.algo_name
+                    if algo not in self._timelines:
+                        self._timelines[algo] = []
+                    self._timelines[algo].append((progress.elapsed_ms, progress.nodes_explored))
 
             # Replay pas-a-pas
             if lane.replaying and lane.result:
@@ -327,3 +352,69 @@ class RaceScene(Scene):
         # Zone actions : boutons
         for btn in self._buttons:
             btn.draw(screen)
+
+        # Toast de confirmation (par-dessus tout)
+        self._draw_toast(screen)
+
+    def _show_toast(self, text: str) -> None:
+        """Affiche un message de confirmation temporaire."""
+        self._toast_text = text
+        self._toast_timer = pygame.time.get_ticks()
+
+    def _draw_toast(self, screen: pygame.Surface) -> None:
+        """Dessine le toast de confirmation s'il est actif."""
+        if self._toast_text is None:
+            return
+        elapsed = pygame.time.get_ticks() - self._toast_timer
+        if elapsed > self._toast_duration_ms:
+            self._toast_text = None
+            return
+
+        assert self._font is not None
+        alpha = 255
+        fade_start = self._toast_duration_ms * 2 // 3
+        if elapsed > fade_start:
+            alpha = max(0, 255 - 255 * (elapsed - fade_start) // (self._toast_duration_ms - fade_start))
+
+        pad_x, pad_y = 20, 10
+        text_surf = self._font.render(self._toast_text, True, (255, 255, 255))
+        tw, th = text_surf.get_size()
+        box_w = tw + 2 * pad_x
+        box_h = th + 2 * pad_y
+        bx = (self.screen_w - box_w) // 2
+        by = self.screen_h // 2 - box_h // 2
+
+        toast_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        toast_surf.fill((46, 59, 29, alpha))  # INK with alpha
+        pygame.draw.rect(toast_surf, (107, 142, 35, alpha), toast_surf.get_rect(), width=2, border_radius=8)
+        text_surf.set_alpha(alpha)
+        toast_surf.blit(text_surf, (pad_x, pad_y))
+        screen.blit(toast_surf, (bx, by))
+
+    def _export_report(self) -> None:
+        """Exporte un rapport PDF de la course."""
+        from ui.pdf_exporter import PDFExporter
+
+        results = [lane.result for lane in self._lanes if lane.result is not None]
+        if not results:
+            self._show_toast("Aucun résultat à exporter")
+            return
+
+        level_safe = self.level_meta.name.replace('/', '_')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"sokoban_race_{level_safe}_{timestamp}.pdf"
+        project_root = Path(__file__).resolve().parent.parent.parent
+        output_path = project_root / "doc" / output_filename
+
+        exporter = PDFExporter(output_path)
+        try:
+            result_path = exporter.export(
+                level_name=self.level_meta.name,
+                initial_state=self._initial_state,
+                results=results,
+            )
+            self._show_toast(f"PDF exporte : {result_path.name}")
+            if self.audio is not None:
+                self.audio.play_sfx("win")
+        except Exception as e:
+            self._show_toast(f"Erreur export : {e}")

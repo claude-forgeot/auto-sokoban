@@ -18,20 +18,37 @@ LEVEL_INVALID = """\
 ####"""
 
 
+@pytest.fixture
+def fake_levels_dir(tmp_path, monkeypatch):
+    """Reproduit la structure repo (<root>/game/level.py + <root>/levels/) dans tmp_path
+    et patche game.level.__file__ pour que la validation de chemin accepte les fichiers
+    sous le dossier levels/ temporaire.
+    """
+    fake_root = tmp_path / "fake_root"
+    fake_game = fake_root / "game"
+    fake_lvls = fake_root / "levels"
+    fake_game.mkdir(parents=True)
+    fake_lvls.mkdir(parents=True)
+    fake_file = fake_game / "level.py"
+    fake_file.touch()
+    monkeypatch.setattr("game.level.__file__", str(fake_file))
+    return fake_lvls
+
+
 class TestLoadLevel:
-    def test_load_valid(self, tmp_path):
-        f = tmp_path / "test.xsb"
+    def test_load_valid(self, fake_levels_dir):
+        f = fake_levels_dir / "test.xsb"
         f.write_text(LEVEL_SIMPLE)
         board = load_level(f)
         assert board.state.player == (4, 2)
         assert not board.is_won()
 
-    def test_load_missing_file(self):
+    def test_load_missing_file(self, fake_levels_dir):
         with pytest.raises(FileNotFoundError):
-            load_level("/inexistant/niveau.xsb")
+            load_level(fake_levels_dir / "niveau_inexistant.xsb")
 
-    def test_load_invalid_content(self, tmp_path):
-        f = tmp_path / "bad.xsb"
+    def test_load_invalid_content(self, fake_levels_dir):
+        f = fake_levels_dir / "bad.xsb"
         f.write_text(LEVEL_INVALID)
         with pytest.raises(ValueError):
             load_level(f)

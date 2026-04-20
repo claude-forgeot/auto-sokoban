@@ -145,15 +145,23 @@ class Solver(ABC):
     ) -> None:
         """Envoie un message de progression dans la queue."""
         elapsed = (time.perf_counter() - start_time) * 1000
-        progress_queue.put(SolverProgress(
-            algo_name=self.name,
-            nodes_explored=nodes_explored,
-            elapsed_ms=elapsed,
-            finished=False,
-            frontier_size=frontier_size,
-            current_depth=current_depth,
-            visit_counts=dict(visit_counts) if visit_counts else {},
-        ))
+        try:
+            # Timeout pour éviter deadlock
+            progress_queue.put(
+                SolverProgress(
+                    algo_name=self.name,
+                    nodes_explored=nodes_explored,
+                    elapsed_ms=elapsed,
+                    finished=False,
+                    frontier_size=frontier_size,
+                    current_depth=current_depth,
+                    visit_counts=dict(visit_counts) if visit_counts else {},
+                ),
+                timeout=1.0  # ← Timeout de 1 seconde
+            )
+        except queue.Full:
+            # Queue pleine, ignorer pour ne pas bloquer le solveur
+            pass
 
     def solve_async(
         self,

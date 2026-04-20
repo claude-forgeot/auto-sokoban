@@ -28,10 +28,10 @@ class TestSolverZones:
         # panel_w = max(380, 800 * 0.30) = max(380, 240) = 380
         # board_w = 800 - 380 = 420
         assert zones.board == pygame.Rect(0, 40, 420, 560)
-        # actions_h = max(5*(35+6)+16, 600*0.35) = max(221, 210) = 221
-        # metrics_h = 600 - 40 - 221 = 339
-        assert zones.metrics == pygame.Rect(420, 40, 380, 339)
-        assert zones.actions == pygame.Rect(420, 379, 380, 221)
+        # actions_h = max(6*(35+6)+16, 600*0.35) = max(262, 210) = 262
+        # metrics_h = 600 - 40 - 262 = 298
+        assert zones.metrics == pygame.Rect(420, 40, 380, 298)
+        assert zones.actions == pygame.Rect(420, 338, 380, 262)
 
     def test_zones_are_disjoint(self) -> None:
         """Les 4 zones ne se chevauchent jamais (3 résolutions testées)."""
@@ -83,10 +83,10 @@ class TestSolverZones:
         assert zones.metrics.width == 576
         # board_w = 1920 - 576 = 1344
         assert zones.board.width == 1344
-        # actions_h = max(5*(63+10)+16, 1080*0.35) = max(381, 378) = 381
-        assert zones.actions.height == 381
-        # metrics_h = 1080 - 72 - 381 = 627
-        assert zones.metrics.height == 627
+        # actions_h = max(6*(63+10)+16, 1080*0.35) = max(454, 378) = 454
+        assert zones.actions.height == 454
+        # metrics_h = 1080 - 72 - 454 = 554
+        assert zones.metrics.height == 554
 
 
 class TestRaceZones:

@@ -4,6 +4,8 @@ Affiche les résultats de plusieurs algorithmes et permet de les comparer."""
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 import queue
 import threading
 
@@ -100,6 +102,11 @@ class SolverScene(Scene):
         self._replay_done = False
         self._all_done = False
         self._speed_idx = DEFAULT_SPEED_IDX
+
+        # Toast confirmation
+        self._toast_text: str | None = None
+        self._toast_timer: int = 0
+        self._toast_duration_ms: int = 3000
         self._paused = False
 
         # Threading
@@ -150,18 +157,20 @@ class SolverScene(Scene):
         btn_w = a.width - 20
 
         def _slot_y(idx: int) -> int:
-            # 5 slots empilés : [0]=STOP/TIMEOUT (contextuel), [1..4]=fixes
+            # 6 slots empilés : [0]=STOP/TIMEOUT (contextuel), [1..5]=fixes
             return a.top + 10 + idx * slot_h
 
         self._buttons = [
             Button(pygame.Rect(btn_x, _slot_y(1), btn_w, btn_h), "REJOUER",
-                   Action.RESET, font=self._font, variant="primary"),
+                Action.RESET, font=self._font, variant="primary"),
             Button(pygame.Rect(btn_x, _slot_y(2), btn_w, btn_h), "ALGO SUIVANT",
-                   Action.SOLVE, font=self._font, variant="solve"),
+                Action.SOLVE, font=self._font, variant="solve"),
             Button(pygame.Rect(btn_x, _slot_y(3), btn_w, btn_h), "HEATMAP [H]",
-                   Action.HEATMAP, font=self._font, variant="rank"),
-            Button(pygame.Rect(btn_x, _slot_y(4), btn_w, btn_h), "RETOUR MENU",
-                   Action.BACK_MENU, font=self._font, variant="quit"),
+                Action.HEATMAP, font=self._font, variant="rank"),
+            Button(pygame.Rect(btn_x, _slot_y(4), btn_w, btn_h), "EXPORTER PDF",
+                Action.EXPORT_PDF, font=self._font, variant="primary"),
+            Button(pygame.Rect(btn_x, _slot_y(5), btn_w, btn_h), "RETOUR MENU",
+                Action.BACK_MENU, font=self._font, variant="quit"),
         ]
         self._stop_button = Button(
             pygame.Rect(btn_x, _slot_y(0), btn_w, btn_h),
@@ -276,10 +285,12 @@ class SolverScene(Scene):
                     self._replay_timer = pygame.time.get_ticks()
                     self._replaying = True
                     self._replay_done = False
+                    if self.audio is not None:
+                        self.audio.play_sfx("move")  # Son de mouvement pour le début du replay
             elif action == Action.SOLVE:
                 # Passer au solveur suivant
                 if solver_running:
-                    continue
+                    return
                 if self._replay_done or not self._replaying:
                     self._current_solver_idx += 1
                     self._run_current_solver()
@@ -299,6 +310,9 @@ class SolverScene(Scene):
             elif action == Action.MOVE_RIGHT and self._paused and self._replaying:
                 if self._current_result and self._replay_step < len(self._current_result.steps) - 1:
                     self._replay_step += 1
+            elif action == Action.EXPORT_PDF:
+                if self._all_done:
+                    self.export_report()
 
     def update(self) -> None:
         """Met à jour l'état du replay automatique."""
@@ -501,3 +515,70 @@ class SolverScene(Scene):
             self._stop_button.draw(screen)
         if not solver_running and self._timeout_button is not None:
             self._timeout_button.draw(screen)
+
+        # Toast de confirmation (par-dessus tout)
+        self._draw_toast(screen)
+
+    def _show_toast(self, text: str) -> None:
+        """Affiche un message de confirmation temporaire."""
+        self._toast_text = text
+        self._toast_timer = pygame.time.get_ticks()
+
+    def _draw_toast(self, screen: pygame.Surface) -> None:
+        """Dessine le toast de confirmation s'il est actif."""
+        if self._toast_text is None:
+            return
+        elapsed = pygame.time.get_ticks() - self._toast_timer
+        if elapsed > self._toast_duration_ms:
+            self._toast_text = None
+            return
+
+        assert self._font is not None
+        # Fade out dans le dernier tiers
+        alpha = 255
+        fade_start = self._toast_duration_ms * 2 // 3
+        if elapsed > fade_start:
+            alpha = max(0, 255 - 255 * (elapsed - fade_start) // (self._toast_duration_ms - fade_start))
+
+        pad_x, pad_y = 20, 10
+        text_surf = self._font.render(self._toast_text, True, (255, 255, 255))
+        tw, th = text_surf.get_size()
+        box_w = tw + 2 * pad_x
+        box_h = th + 2 * pad_y
+        bx = (self.screen_w - box_w) // 2
+        by = self.screen_h // 2 - box_h // 2
+
+        toast_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        toast_surf.fill((46, 59, 29, alpha))  # INK with alpha
+        pygame.draw.rect(toast_surf, (107, 142, 35, alpha), toast_surf.get_rect(), width=2, border_radius=8)  # SAGE border
+        text_surf.set_alpha(alpha)
+        toast_surf.blit(text_surf, (pad_x, pad_y))
+        screen.blit(toast_surf, (bx, by))
+
+    def export_report(self) -> None:
+        """Exporte un rapport PDF détaillé des résultats."""
+        from ui.pdf_exporter import PDFExporter
+        
+        if not self._results:
+            self._show_toast("Aucun résultat à exporter")
+            return
+        
+        # Créer le nom du fichier dans le dossier doc/
+        level_safe = self.level_meta.name.replace('/', '_')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"sokoban_report_{level_safe}_{timestamp}.pdf"
+        project_root = Path(__file__).resolve().parent.parent.parent
+        output_path = project_root / "doc" / output_filename
+        
+        exporter = PDFExporter(output_path)
+        try:
+            result_path = exporter.export(
+                level_name=self.level_meta.name,
+                initial_state=self._initial_state,
+                results=self._results,
+            )
+            self._show_toast(f"PDF exporte : {result_path.name}")
+            if self.audio is not None:
+                self.audio.play_sfx("win")
+        except Exception as e:
+            self._show_toast(f"Erreur export : {e}")
