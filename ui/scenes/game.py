@@ -80,14 +80,14 @@ class GameScene(Scene):
         self._game_start_sound_played = False
 
     def _compute_tile_size(self, screen_w: int, screen_h: int) -> int:
-        hud_h = 50
+        hud_h = max(36, int(50 * screen_h / 600))
         actions_h = max(50, int(60 * screen_h / 600))
         available_w = screen_w - 40
         available_h = screen_h - hud_h - actions_h - 20
         cols = self.board.state.width
         rows = self.board.state.height
         adaptive_tile = min(
-            self._base_tile_size,
+            self._base_tile_size * 2,
             available_w // max(cols, 1),
             available_h // max(rows, 1),
         )
@@ -337,8 +337,9 @@ class GameScene(Scene):
         bw, bh = board_surface.get_size()
         sy = self.screen_h / 600
         actions_bar_h = max(50, int(60 * sy))
+        hud_top_h = max(36, int(50 * sy))
         gx = (self.screen_w - bw) // 2
-        board_area_top = 50
+        board_area_top = hud_top_h
         board_area_h = self.screen_h - board_area_top - actions_bar_h
         gy = board_area_top + (board_area_h - bh) // 2
         if self._invalid_move_shake_start:
