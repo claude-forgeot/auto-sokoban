@@ -190,7 +190,10 @@ class MetricsPanel:
         font = self._get_font()
         line_h = font.get_linesize() + 4
         bar_h = max(12, font.get_height() // 2)
-        bar_section_h = (bar_h + line_h) * len(results) + line_h
+        # Compactage : pad vertical entre barres = 4px (au lieu de line_h)
+        # pour laisser plus de place a la timeline en dessous.
+        bar_row_h = bar_h + 4
+        bar_section_h = bar_row_h * len(results) + line_h
         table_h = line_h * (len(results) + 2)
         height = table_h + bar_section_h + 10
         surface = pygame.Surface((self.width, height))
@@ -275,7 +278,7 @@ class MetricsPanel:
 
             time_label = font.render(f"{r.time_ms:.0f}ms", True, COLOR_TEXT)
             surface.blit(time_label, (bar_x + bar_w + 5, y + label_y_offset))
-            y += bar_h + line_h
+            y += bar_row_h
 
         return surface
 
@@ -344,16 +347,18 @@ class MetricsPanel:
         if not timelines:
             return surface
 
-        # Titre
+        # Titre + legende sur la meme ligne (compactage : gagne line_h+4 de chrome
+        # vertical pour le graphe quand la zone metrics est etroite).
         title = font.render("Noeuds / Temps", True, COLOR_HEADER)
         surface.blit(title, (10, 2))
+        title_w = title.get_width()
 
         # Zone graphe : margins adaptes a la font scalee
         margin_left = max(50, font.size("0000")[0] + 10)
         margin_right = 10
-        # Reserve la hauteur du titre + ligne legende au-dessus du graphe.
-        margin_top = line_h * 2 + 8
-        margin_bottom = max(20, line_h + 4)
+        # Reserve la hauteur d'UNE ligne (titre+legende fusionnes) + petit gap
+        margin_top = line_h + 6
+        margin_bottom = max(18, line_h + 2)
         gw = w - margin_left - margin_right
         gh = h - margin_top - margin_bottom
 
@@ -388,19 +393,18 @@ class MetricsPanel:
                 screen_points.append((sx, sy))
             pygame.draw.lines(surface, color, False, screen_points, 3)
 
-        # Legende : placee sous le titre, sur sa propre ligne. Carre plein
-        # (au lieu d'une ligne fine) pour rester lisible quand l'echelle ecrase
-        # le marqueur.
-        lx = margin_left + 4
-        ly = line_h + 4
-        marker_size = max(8, line_h - 4)
+        # Legende inline a droite du titre (meme ligne) : carre plein pour rester
+        # lisible quand l'echelle ecrase le marqueur.
+        lx = 10 + title_w + 14
+        ly = 2
+        marker_size = max(8, line_h - 6)
         for algo_name in timelines:
             color = algo_colors.get(algo_name, default_color)
             marker_rect = pygame.Rect(lx, ly + (line_h - marker_size) // 2, marker_size, marker_size)
             pygame.draw.rect(surface, color, marker_rect, border_radius=2)
             label = font.render(algo_name, True, COLOR_TEXT)
-            surface.blit(label, (lx + marker_size + 6, ly))
-            lx += marker_size + 6 + label.get_width() + 14
+            surface.blit(label, (lx + marker_size + 4, ly))
+            lx += marker_size + 4 + label.get_width() + 10
 
         # Labels axes
         time_label = font.render(f"{max_time:.0f}ms", True, COLOR_TEXT)

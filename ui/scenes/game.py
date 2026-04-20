@@ -320,7 +320,7 @@ class GameScene(Scene):
         pygame.draw.rect(screen, HUD_BORDER, hud_rect, width=2, border_radius=10)
 
         fields = [
-            ("Niveau", self.level_meta.name),
+            ("Niveau", self.level_meta.name.split("/")[-1]),
             ("Coups", str(self.move_count)),
             ("Temps", f"{mins:02d}:{secs:02d}"),
         ]
